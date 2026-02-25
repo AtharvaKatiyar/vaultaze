@@ -1,0 +1,77 @@
+// BTCSecurityRouter contract ABI — IBTCSecurityRouter interface
+export const ROUTER_ABI = [
+  {
+    type: "function",
+    name: "get_btc_health",
+    inputs: [],
+    outputs: [{ type: "core::integer::u128" }],
+    state_mutability: "view",
+  },
+  {
+    type: "function",
+    name: "is_safe_mode",
+    inputs: [],
+    outputs: [{ type: "core::bool" }],
+    state_mutability: "view",
+  },
+  {
+    type: "function",
+    name: "get_max_leverage",
+    inputs: [],
+    outputs: [{ type: "core::integer::u128" }],
+    state_mutability: "view",
+  },
+  {
+    type: "function",
+    name: "get_max_ltv",
+    inputs: [],
+    outputs: [{ type: "core::integer::u128" }],
+    state_mutability: "view",
+  },
+  {
+    type: "function",
+    name: "get_btc_backing",
+    inputs: [],
+    outputs: [{ type: "core::integer::u256" }],
+    state_mutability: "view",
+  },
+  {
+    type: "function",
+    name: "get_btc_exposure",
+    inputs: [],
+    outputs: [{ type: "core::integer::u256" }],
+    state_mutability: "view",
+  },
+  {
+    type: "function",
+    name: "get_btc_usd_price",
+    inputs: [],
+    outputs: [{ type: "core::integer::u128" }],
+    state_mutability: "view",
+  },
+  {
+    type: "function",
+    name: "is_price_fresh",
+    inputs: [],
+    outputs: [{ type: "core::bool" }],
+    state_mutability: "view",
+  },
+  {
+    type: "function",
+    name: "get_price_last_updated",
+    inputs: [],
+    outputs: [{ type: "core::integer::u64" }],
+    state_mutability: "view",
+  },
+  {
+    type: "function",
+    name: "is_operation_allowed",
+    inputs: [
+      { name: "operation_type", type: "core::felt252" },
+      { name: "protocol", type: "core::starknet::contract_address::ContractAddress" },
+      { name: "amount", type: "core::integer::u256" },
+    ],
+    outputs: [{ type: "core::bool" }],
+    state_mutability: "view",
+  },
+] as const;
