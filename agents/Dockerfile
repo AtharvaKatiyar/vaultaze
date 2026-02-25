@@ -23,6 +23,7 @@ COPY agents/ .
 RUN mkdir -p /vault/target/dev
 COPY vault/target/dev/vault_BTCSecurityRouter.contract_class.json /vault/target/dev/
 COPY vault/target/dev/vault_BTCVault.contract_class.json /vault/target/dev/
+COPY vault/target/dev/vault_MockPragmaOracle.contract_class.json /vault/target/dev/
 
 # Never run as root
 RUN useradd -m agentuser && chown -R agentuser /app /vault
