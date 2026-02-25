@@ -1,16 +1,25 @@
 FROM python:3.13-slim
 
+# Build context is the REPO ROOT (btc_vault/).
+# Railway sets this via railway.toml → build.buildContextDir = ".".
+
 WORKDIR /app
 
-# Install deps first (cached layer)
-COPY requirements.txt .
+# Install Python deps first (layer-cached)
+COPY agents/requirements.txt .
 RUN pip install --no-cache-dir -r requirements.txt
 
-# Copy source
-COPY . .
+# Copy agent source code
+COPY agents/ .
+
+# Copy compiled contract ABIs that the client loads at runtime.
+# Mirrors the path that config.py resolves: __file__/../../vault/target/dev/
+RUN mkdir -p /vault/target/dev
+COPY vault/target/dev/vault_BTCSecurityRouter.contract_class.json /vault/target/dev/
+COPY vault/target/dev/vault_BTCVault.contract_class.json /vault/target/dev/
 
 # Never run as root
-RUN useradd -m agentuser
+RUN useradd -m agentuser && chown -R agentuser /app /vault
 USER agentuser
 
 CMD ["python", "main.py"]
