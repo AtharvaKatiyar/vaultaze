@@ -1,0 +1,131 @@
+========================================================
+  BTCVault — Starknet Sepolia Deployment
+  Date: 24 February 2026
+========================================================
+
+--------------------
+  ACCOUNT
+--------------------
+Owner / Deployer
+  Address:    0x01390501de9c3e2c1f06d97fd317c1cd002d95250ab6f58bf1f272bdb9f8ed18
+
+--------------------
+  CLASS HASHES
+--------------------
+MockPragmaOracle
+  Class Hash: 0x004a8d55ec2ff03796f792d7d782d7d936743b27fc9622d55f96b7447ff136e8
+
+YBTCToken  (v1 — set_vault_address NOT ABI-exposed, unused)
+  Class Hash: 0x0774e337a6558ca19ff2a2f66c3d0b4dfb3c42b3ada4b38ca3778a481a26e6db
+
+YBTCToken  (v2 — set_vault_address ABI-exposed, ACTIVE)
+  Class Hash: 0x01f19fbc091e24c3b5b61feda8c693b9efc2f6d15a18cfd318912d4f8d91c138
+
+BTCSecurityRouter
+  Class Hash: 0x01c44f91df1f2927ca39ffe97b7d2cff2cc9205a39afed79a4f28e51fd115968
+
+BTCVault
+  Class Hash: 0x012f47f2ee88df4ebf6d724911d6346917672e29c090ae9b9dc0fb3b4c050e7b
+
+MockStrategy
+  Class Hash: 0x05502530ea2eeb856d5cfa1ef6773e669a273916448287f1ecf15534f2cfbed1
+
+--------------------
+  DEPLOYED CONTRACTS  (ACTIVE)
+--------------------
+MockPragmaOracle
+  Address:    0x06d1c9aa3cb65003c51a4b360c8ac3a23a9724530246031ba92ff0b2461f7e74
+  Init price: 9500000000000  ($95,000 @ 8 decimals)
+  Explorer:   https://sepolia.starkscan.co/contract/0x06d1c9aa3cb65003c51a4b360c8ac3a23a9724530246031ba92ff0b2461f7e74
+
+BTCSecurityRouter
+  Address:    0x014c306f04fd602c1a06f61367de622af2558972c7eead39600b5d99fd1e2639
+  Threshold:  110  (safe mode triggers below 110% health)
+  Oracle:     0x06d1c9aa3cb65003c51a4b360c8ac3a23a9724530246031ba92ff0b2461f7e74
+  Explorer:   https://sepolia.starkscan.co/contract/0x014c306f04fd602c1a06f61367de622af2558972c7eead39600b5d99fd1e2639
+
+YBTCToken  (yBTC receipt token)
+  Address:    0x04ea131f51c071ce677482a4eeb1f9ac31e9188b2a92de13cb7043f9f21c8166
+  Vault:      0x0047970cfbf8de94f268f2416c9e5cbaef520dae7b5eae0fd6476a41b7266f08
+  Explorer:   https://sepolia.starkscan.co/contract/0x04ea131f51c071ce677482a4eeb1f9ac31e9188b2a92de13cb7043f9f21c8166
+
+Mock wBTC  (test ERC-20, mintable by owner)
+  Address:    0x0129f01b63b9eb403e07c9da8e69e2bed648a5fbc81fddb0b27768ee323bf446
+  Explorer:   https://sepolia.starkscan.co/contract/0x0129f01b63b9eb403e07c9da8e69e2bed648a5fbc81fddb0b27768ee323bf446
+
+BTCVault   ★ MAIN CONTRACT
+  Address:    0x0047970cfbf8de94f268f2416c9e5cbaef520dae7b5eae0fd6476a41b7266f08
+  wBTC:       0x0129f01b63b9eb403e07c9da8e69e2bed648a5fbc81fddb0b27768ee323bf446
+  yBTC:       0x04ea131f51c071ce677482a4eeb1f9ac31e9188b2a92de13cb7043f9f21c8166
+  Router:     0x014c306f04fd602c1a06f61367de622af2558972c7eead39600b5d99fd1e2639
+  Explorer:   https://sepolia.starkscan.co/contract/0x0047970cfbf8de94f268f2416c9e5cbaef520dae7b5eae0fd6476a41b7266f08
+
+--------------------
+  STALE / UNUSED CONTRACTS
+--------------------
+YBTCToken v1  (not wired to any vault)
+  Address:    0x01ee6cf57bcffc85878c7f79371a991649228ee39dfccc6affae1851bb20c96d
+
+Mock wBTC v1  (deployed before vault address was known)
+  Address:    0x072d976566838719e928720aee7007b8ed1601360fa205e7173b0ce7905bb162
+
+BTCVault v1   (deployed against YBTCToken v1, abandoned)
+  Address:    0x0627e3e2a6d587e725a29ce84523300dca82d4e07e43f0af0e234ecb9a42b0b8
+
+--------------------
+  VERIFIED ON-CHAIN STATE  (24 Feb 2026)
+--------------------
+safe_mode          : false
+btc_usd_price      : 9500000000000  ($95,000)
+share_price        : 1000000        (1.0x)
+total_assets       : 50000000       (0.5 BTC after partial withdraw)
+ybtc_supply        : 50000000       (0.5 BTC in circulation)
+
+--------------------
+  TRANSACTIONS LOG
+--------------------
+Account deployed
+  0x065ed09b49f270cce59740030182f7c34b9ab02f5f29b3bb971465eabdf71389
+
+MockPragmaOracle declared
+  0x07b7eebeef72ab4002740ad1745e182ff976a7478b203e4dfe0bbf8d1312d4cc
+MockPragmaOracle deployed
+  0x01a2bcce5d521bc30254fdb37dcde8a36e24d5b38cac0d0106fdb18985857f4b
+
+BTCSecurityRouter declared
+  0x02620f5caa5a47748896a52c2d7ecf5022b5d0600a4333263df87c565b59f08e
+BTCSecurityRouter deployed
+  0x014da6982100bd7b1cb7bbb1783296bc1a3eff774a8207e59adfa0194cd8fed3
+
+YBTCToken v2 declared
+  0x07363eeebb8dd5b4953391596c00fe1f27d209177919fb04444d1829e77dd4f6
+YBTCToken deployed
+  0x021c13681d34d98dc0644d67fd501ab7168f14eca649f06cc0dc4252860d2b33
+
+Mock wBTC deployed
+  0x05db4b0072d4feee5f525bb9436d123e382acca0f018fa1111971da061f0717d
+
+BTCVault declared
+  0x07c45393efcb5650bf8c3596c66931a814232f4cf8efc22132c2e78bc76eb0f0
+BTCVault deployed
+  0x034b09069413445e70e7d53ba81867346c314b551738d7784bb38fd2369ec219
+
+yBTC.set_vault_address wired
+  0x00a6b2fd44013a746e25449aab08507ecea855f42cb819af2440fd5ceaf6bfe9
+router.register_protocol(vault)
+  0x0707c17206a75a1e78b578adfa439edf57301f86e4244886347cc71ae729b9b2
+router.update_btc_backing
+  0x00d879854eca4fe55dacf18fc4b7ffa60fd6dbe73bb8fc9901485f30ee19740a
+router.refresh_btc_price
+  0x010b0451d358e6634ea595493ac03ba5fbe75208d729fa736150a87e56e4aa9a
+
+mint(1 BTC to owner)
+  0x06af066108145e12cabf711754221cbf9541a4296a2f32fc1328e10304330cf0
+approve(vault, 1 BTC)
+  0x053cf4f98cd12c65051a231232fb898ea95c5b806df3e3cf53ec82f5078e3fb7
+deposit(1 BTC)
+  0x00ace1ed594806a5f7459490a8db1342c4cd384c592ff8429eccee88ce3c9658
+apply_leverage(1.2x)
+  0x054022905c9a5963b57004cb9600ac34df3f4fba69076c2d51bc9ea500f88a95
+withdraw(0.5 BTC)
+  0x059cd88332e867a253afb9626bcb1347b8b521498ffa768171f6b1739fed8ff9
