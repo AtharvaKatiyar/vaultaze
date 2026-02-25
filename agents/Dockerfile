@@ -5,6 +5,12 @@ FROM python:3.13-slim
 
 WORKDIR /app
 
+# Build tools required by starknet-py's native dependencies
+# (crypto-cpp-py and poseidon-py compile C++ extensions via cmake/make)
+RUN apt-get update && apt-get install -y --no-install-recommends \
+    cmake make gcc g++ \
+    && rm -rf /var/lib/apt/lists/*
+
 # Install Python deps first (layer-cached)
 COPY agents/requirements.txt .
 RUN pip install --no-cache-dir -r requirements.txt
