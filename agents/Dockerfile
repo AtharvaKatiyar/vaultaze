@@ -25,8 +25,17 @@ COPY vault/target/dev/vault_BTCSecurityRouter.contract_class.json /vault/target/
 COPY vault/target/dev/vault_BTCVault.contract_class.json /vault/target/dev/
 COPY vault/target/dev/vault_MockPragmaOracle.contract_class.json /vault/target/dev/
 
+# Copy startup script that runs both agents + faucet server
+COPY agents/start.sh .
+RUN chmod +x start.sh
+
+# Faucet HTTP server port
+EXPOSE 8400
+
 # Never run as root
 RUN useradd -m agentuser && chown -R agentuser /app /vault
 USER agentuser
 
-CMD ["python", "main.py"]
+# start.sh runs python main.py (agents) in background
+# then uvicorn faucet_server:app in foreground on $PORT / $FAUCET_PORT
+CMD ["sh", "start.sh"]

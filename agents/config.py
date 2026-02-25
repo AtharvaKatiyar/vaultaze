@@ -71,6 +71,21 @@ class AgentSettings(BaseSettings):
     oracle_owner_private_key: str = ""
     oracle_owner_address: str = ""
 
+    # ── Faucet Server (testnet / Sepolia only) ────────────────────────────────
+    # The faucet server mints test wBTC on behalf of any requesting wallet.
+    # Set to the deployer's credentials (same account that owns MockWBTC).
+    # Falls back to oracle_owner_private_key / oracle_owner_address if empty.
+    faucet_private_key: str = ""
+    faucet_address: str = ""
+    # MockWBTC contract — vault_address is set to the deployer, only it can mint
+    mock_wbtc_address: str = "0x0129f01b63b9eb403e07c9da8e69e2bed648a5fbc81fddb0b27768ee323bf446"
+    # Per-request cap (satoshi, 8 decimals). Default = 5 wBTC
+    faucet_max_satoshi: int = 500_000_000
+    # Hours a wallet must wait between requests
+    faucet_rate_limit_hours: int = 24
+    # Port the faucet HTTP server listens on
+    faucet_port: int = 8400
+
     # ── Logging ───────────────────────────────────────────────────────────────
     log_level: str = "INFO"
     log_format: str = "json"                 # "json" | "console"

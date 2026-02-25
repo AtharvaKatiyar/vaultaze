@@ -1,0 +1,28 @@
+docs/
+btc_vault.txt
+IMPLEMENTATION_SUMMARY.md
+SECURITY_AUDIT.md
+
+# Python
+__pycache__/
+*.pyc
+*.pyo
+.pytest_cache/
+
+# Secrets — NEVER commit
+.env
+agents/.env
+agents/.venv/
+
+# Scarb / Cairo build output
+# Keep vault/target/dev/*.contract_class.json (Docker needs the ABIs)
+# but exclude test artefacts and incremental cache
+target/
+vault/target/dev/*test*
+vault/target/dev/incremental/
+vault/target/release/
+vault/target/CACHEDIR.TAG
+
+# Editor
+.DS_Store
+*.swp
