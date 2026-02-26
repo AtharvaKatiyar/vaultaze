@@ -138,10 +138,10 @@ async def _execute_mint(recipient: str, amount_satoshi: int) -> str:
 
     log.info("faucet.submitting", recipient=recipient, satoshi=amount_satoshi)
     invocation = await account.execute_v3(calls=calls, auto_estimate=True)
-    tx_hash = hex(invocation.hash)
+    tx_hash = hex(invocation.transaction_hash)
     log.info("faucet.tx_submitted", tx_hash=tx_hash)
 
-    await invocation.wait_for_acceptance(check_interval=TX_CHECK_INTERVAL)
+    await _rpc.wait_for_tx(invocation.transaction_hash, check_interval=TX_CHECK_INTERVAL)
     log.info("faucet.tx_accepted", tx_hash=tx_hash)
     return tx_hash
 
