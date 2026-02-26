@@ -41,6 +41,7 @@ from starknet_py.net.models.chains import StarknetChainId
 from starknet_py.net.signer.stark_curve_signer import KeyPair
 from starknet_py.net.client_models import Call
 from starknet_py.hash.selector import get_selector_from_name
+from starknet_py.net.client_errors import ClientError
 
 from config import settings
 from core.logger import get_logger
@@ -106,6 +107,38 @@ async def _get_account() -> Account:
         return _account
 
 
+# ── 429-aware execution helper ───────────────────────────────────────────────
+
+_MAX_RETRIES    = 4
+_RETRY_BASE_S   = 3   # seconds; doubles each attempt
+
+async def _exec_with_retry(calls: list[Call]) -> str:
+    """
+    Submit a multicall, wait for acceptance, and return the tx hash (hex str).
+    Retries up to _MAX_RETRIES times on ClientError 429 (RPC rate-limit).
+    """
+    account = await _get_account()
+    last_err: Exception | None = None
+    for attempt in range(_MAX_RETRIES):
+        if attempt:
+            delay = _RETRY_BASE_S * (2 ** (attempt - 1))   # 3, 6, 12 …
+            log.warning("faucet.rpc_rate_limit_retry", attempt=attempt, wait=delay)
+            await asyncio.sleep(delay)
+        try:
+            invocation = await account.execute_v3(calls=calls, auto_estimate=True)
+            tx_hash = hex(invocation.transaction_hash)
+            log.info("faucet.tx_submitted", tx_hash=tx_hash, attempt=attempt)
+            await _rpc.wait_for_tx(invocation.transaction_hash, check_interval=TX_CHECK_INTERVAL)
+            log.info("faucet.tx_accepted", tx_hash=tx_hash)
+            return tx_hash
+        except ClientError as exc:
+            if "429" in str(exc) or "rate" in str(exc).lower():
+                last_err = exc
+                continue          # retry on rate-limit
+            raise                 # bubble any other ClientError immediately
+    raise RuntimeError(f"RPC rate-limit persisted after {_MAX_RETRIES} retries: {last_err}")
+
+
 async def _execute_mint(recipient: str, amount_satoshi: int) -> str:
     """
     Send a 3-call multicall:
@@ -137,13 +170,7 @@ async def _execute_mint(recipient: str, amount_satoshi: int) -> str:
     ]
 
     log.info("faucet.submitting", recipient=recipient, satoshi=amount_satoshi)
-    invocation = await account.execute_v3(calls=calls, auto_estimate=True)
-    tx_hash = hex(invocation.transaction_hash)
-    log.info("faucet.tx_submitted", tx_hash=tx_hash)
-
-    await _rpc.wait_for_tx(invocation.transaction_hash, check_interval=TX_CHECK_INTERVAL)
-    log.info("faucet.tx_accepted", tx_hash=tx_hash)
-    return tx_hash
+    return await _exec_with_retry(calls)
 
 
 # ── FastAPI app ───────────────────────────────────────────────────────────────
@@ -237,9 +264,7 @@ async def refresh_oracle():
                 calldata=[],
             ),
         ]
-        invocation = await account.execute_v3(calls=calls, auto_estimate=True)
-        tx_hash = hex(invocation.transaction_hash)
-        await _rpc.wait_for_tx(invocation.transaction_hash, check_interval=TX_CHECK_INTERVAL)
+        tx_hash = await _exec_with_retry(calls)
         log.info("oracle.refreshed", tx_hash=tx_hash)
         return {"tx_hash": tx_hash, "message": "Oracle price refreshed to $95,000"}
     except RuntimeError as exc:

@@ -28,7 +28,9 @@ class AgentSettings(BaseSettings):
 
     # ── Network ───────────────────────────────────────────────────────────────
     starknet_network: str = "sepolia"
-    starknet_rpc_url: str = "https://free-rpc.nethermind.io/sepolia-juno/"
+    # Blast public endpoint has a much more generous free rate limit than
+    # nethermind's shared node (which throttles at ~1 req/s via zan.top).
+    starknet_rpc_url: str = "https://starknet-sepolia.public.blastapi.io"
 
     # ── Contract Addresses (hex strings) ─────────────────────────────────────
     router_address: str = "0x0"
