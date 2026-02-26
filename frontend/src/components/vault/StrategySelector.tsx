@@ -4,7 +4,7 @@ import { StrategyMode, StrategyOption } from "@/types";
 import { cn } from "@/lib/utils/cn";
 import { ShieldCheck, Scale, Flame } from "lucide-react";
 
-const STRATEGIES: StrategyOption[] = [
+export const STRATEGIES: StrategyOption[] = [
   {
     id: "conservative",
     label: "Conservative",

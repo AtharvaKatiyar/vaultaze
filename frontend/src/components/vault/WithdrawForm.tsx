@@ -24,60 +24,77 @@ export function WithdrawForm() {
   const { data: metrics }         = useSystemMetrics();
   const { sendAsync }             = useSendTransaction({});
 
-  const [amount, setAmount]       = useState("");
+  const [wbtcInput, setWbtcInput] = useState("");
   const [tx, setTx]               = useState<TxState>({ status: "idle" });
 
-  const ybtcAmount    = parseBTCInput(amount);
+  // Parse wBTC the user wants to receive (satoshi)
+  const wbtcSatoshi   = parseBTCInput(wbtcInput);
   const ybtcBal       = toBalance(ybtcBalance);
   const ybtcBalBTC    = formatBTC(ybtcBal);
-  const sharePrice    = metrics ? Number(metrics.sharePrice) / 1_000_000 : 1;
-  const btcToReceive  = ybtcAmount > 0n ? (Number(ybtcAmount) / 1e8) * sharePrice : 0;
-  const btcPrice      = metrics ? pragmaToUSD(BigInt(metrics.btcUsdPrice)) : 0;
-  const usdToReceive  = btcToReceive * btcPrice;
+
+  // sharePrice is in SCALE=1_000_000 units. Fallback to 1:1 when oracle is stale.
+  const sharePriceRaw    = metrics ? Number(metrics.sharePrice) : 1_000_000;
+  const sharePriceRatio  = sharePriceRaw > 0 ? sharePriceRaw / 1_000_000 : 1;
+
+  // yBTC that will be burned to get the requested wBTC amount
+  const ybtcToBurn = wbtcSatoshi > 0n
+    ? BigInt(Math.round(Number(wbtcSatoshi) / sharePriceRatio))
+    : 0n;
+
+  // Max wBTC the user can receive given their yBTC balance
+  const maxWbtcSatoshi = ybtcBal > 0n
+    ? BigInt(Math.round(Number(ybtcBal) * sharePriceRatio))
+    : 0n;
+
+  const btcPrice     = metrics ? pragmaToUSD(BigInt(metrics.btcUsdPrice)) : 0;
+  const usdToReceive = wbtcSatoshi > 0n ? (Number(wbtcSatoshi) / 1e8) * (btcPrice || 95_000) : 0;
 
   async function handleWithdraw() {
     if (!address) return;
     setTx({ status: "pending" });
     try {
-      const amountU256 = uint256.bnToUint256(ybtcAmount);
+      const amountU256 = uint256.bnToUint256(ybtcToBurn);
       const { transaction_hash } = await sendAsync([{
         contractAddress: CONTRACTS.BTCVault,
         entrypoint: "withdraw",
         calldata: [amountU256.low.toString(), amountU256.high.toString()],
       }]);
       setTx({ status: "success", hash: transaction_hash });
-      setAmount("");
+      setWbtcInput("");
     } catch (e: any) {
       setTx({ status: "error", error: e.message });
     }
   }
 
-  const hasBalance = ybtcBal >= ybtcAmount;
+  const hasBalance = ybtcBal >= ybtcToBurn;
 
   return (
     <div className="space-y-5">
 
-      {/* yBTC input */}
+      {/* wBTC input — how much user wants to receive */}
       <div>
-        <label className="block text-xs text-white/50 uppercase tracking-wider mb-2">yBTC to Burn</label>
+        <label className="block text-xs text-white/50 uppercase tracking-wider mb-2">wBTC to Receive</label>
         <div className="relative">
           <input
             type="number"
-            value={amount}
-            onChange={(e) => setAmount(e.target.value)}
+            value={wbtcInput}
+            onChange={(e) => setWbtcInput(e.target.value)}
             placeholder="0.00000000"
             className="w-full bg-white/5 border border-white/10 rounded-xl px-4 py-3 text-white text-lg font-mono placeholder:text-white/20 focus:outline-none focus:border-orange-500/50 pr-20"
           />
           <div className="absolute right-3 top-1/2 -translate-y-1/2">
-            <span className="text-emerald-400 font-semibold text-sm">yBTC</span>
+            <span className="text-orange-400 font-semibold text-sm">wBTC</span>
           </div>
         </div>
-        <div className="flex justify-end mt-1.5">
+        <div className="flex items-center justify-between mt-1.5">
+          <span className="text-xs text-white/30">
+            {usdToReceive > 0 ? `≈ ${formatUSD(usdToReceive)}` : ""}
+          </span>
           <button
             className="text-xs text-orange-400 hover:text-orange-300"
-            onClick={() => ybtcBal > 0n && setAmount(formatBTC(ybtcBal))}
+            onClick={() => maxWbtcSatoshi > 0n && setWbtcInput(formatBTC(maxWbtcSatoshi))}
           >
-            Max: {ybtcBalBTC} yBTC
+            Max: {formatBTC(maxWbtcSatoshi)} wBTC
           </button>
         </div>
       </div>
@@ -87,16 +104,16 @@ export function WithdrawForm() {
         <ArrowDown className="w-5 h-5 text-white/30" />
       </div>
 
-      {/* You receive */}
+      {/* yBTC burned preview */}
       <div className="bg-white/3 rounded-xl px-4 py-3">
-        <p className="text-xs text-white/40 mb-2">You receive</p>
+        <p className="text-xs text-white/40 mb-2">yBTC burned</p>
         <div className="flex items-center justify-between">
           <div>
-            <p className="text-xl font-mono text-white">
-              {btcToReceive > 0 ? btcToReceive.toFixed(8) : "—"} wBTC
+            <p className="text-xl font-mono text-emerald-400">
+              {ybtcToBurn > 0n ? formatBTC(ybtcToBurn) : "—"} yBTC
             </p>
-            <p className="text-xs text-white/40 mt-0.5">
-              {usdToReceive > 0 ? `≈ ${formatUSD(usdToReceive)}` : ""}
+            <p className="text-xs text-white/30 mt-0.5">
+              Balance: {ybtcBalBTC} yBTC
             </p>
           </div>
           <Flame className="w-5 h-5 text-orange-400 opacity-60" />
@@ -106,7 +123,7 @@ export function WithdrawForm() {
       {/* Share price */}
       {metrics && (
         <div className="text-xs text-white/40 text-center">
-          1 yBTC = {sharePrice.toFixed(6)} wBTC &nbsp;·&nbsp; Share price
+          1 yBTC = {sharePriceRatio.toFixed(6)} wBTC · Share price
         </div>
       )}
 
@@ -114,18 +131,20 @@ export function WithdrawForm() {
       <Button
         className="w-full"
         size="lg"
-        variant={ybtcAmount > 0n && !hasBalance ? "danger" : "primary"}
-        disabled={!address || !amount || ybtcAmount === 0n || !hasBalance}
+        variant={wbtcSatoshi > 0n && !hasBalance ? "danger" : "primary"}
+        disabled={!address || !wbtcInput || wbtcSatoshi === 0n || !hasBalance}
         loading={tx.status === "pending"}
         onClick={handleWithdraw}
       >
         {!address
           ? "Connect Wallet First"
-          : !hasBalance && ybtcAmount > 0n
+          : !hasBalance && wbtcSatoshi > 0n
           ? "Insufficient yBTC Balance"
           : tx.status === "pending"
           ? "Withdrawing..."
-          : `Withdraw ${amount || "0"} yBTC`}
+          : wbtcSatoshi > 0n
+          ? `Receive ${wbtcInput} wBTC → Burn ${formatBTC(ybtcToBurn)} yBTC`
+          : "Enter wBTC Amount"}
       </Button>
 
       {/* Tx status */}

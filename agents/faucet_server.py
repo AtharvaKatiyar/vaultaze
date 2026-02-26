@@ -216,6 +216,39 @@ async def health_check():
     return {"status": "ok"}
 
 
+@app.post("/oracle/refresh")
+async def refresh_oracle():
+    """
+    Refresh the MockPragmaOracle price and sync the BTCSecurityRouter cache.
+    Does NOT mint any tokens — just keeps the oracle timestamp current so
+    the router returns a non-zero BTC price.
+    """
+    try:
+        account = await _get_account()
+        calls: list[Call] = [
+            Call(
+                to_addr=int(MOCK_ORACLE_ADDRESS, 16),
+                selector=get_selector_from_name("set_price"),
+                calldata=[DEFAULT_BTC_PRICE],
+            ),
+            Call(
+                to_addr=int(BTCSECURITY_ROUTER_ADDR, 16),
+                selector=get_selector_from_name("refresh_btc_price"),
+                calldata=[],
+            ),
+        ]
+        invocation = await account.execute_v3(calls=calls, auto_estimate=True)
+        tx_hash = hex(invocation.transaction_hash)
+        await _rpc.wait_for_tx(invocation.transaction_hash, check_interval=TX_CHECK_INTERVAL)
+        log.info("oracle.refreshed", tx_hash=tx_hash)
+        return {"tx_hash": tx_hash, "message": "Oracle price refreshed to $95,000"}
+    except RuntimeError as exc:
+        raise HTTPException(status_code=503, detail={"error": "not_configured", "message": str(exc)})
+    except Exception as exc:
+        log.error("oracle.refresh_error", error=str(exc))
+        raise HTTPException(status_code=500, detail={"error": "refresh_failed", "message": str(exc)[:400]})
+
+
 @app.get("/faucet/status", response_model=FaucetStatus)
 async def faucet_status():
     return FaucetStatus(

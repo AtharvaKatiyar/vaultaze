@@ -5,7 +5,7 @@ import { useAccount, useSendTransaction } from "@starknet-react/core";
 import { Contract, uint256, shortString } from "starknet";
 import { Card, CardTitle } from "@/components/ui/Card";
 import { Button } from "@/components/ui/Button";
-import { StrategySelector } from "./StrategySelector";
+import { StrategySelector, STRATEGIES } from "./StrategySelector";
 import { LeverageSlider } from "@/components/leverage/LeverageSlider";
 import { useWBTCBalance, useWBTCAllowance, toBalance } from "@/lib/hooks/useUserPosition";
 import { useSystemMetrics } from "@/lib/hooks/useRouterData";
@@ -38,6 +38,32 @@ export function DepositForm() {
   const [strategy, setStrategy] = useState<StrategyMode>("conservative");
   const [leverage, setLeverage] = useState(100);
   const [tx, setTx]             = useState<TxState>({ status: "idle" });
+
+  // Derive strategy from leverage value — used when slider is dragged
+  function leverageToStrategy(lev: number): StrategyMode {
+    if (lev <= 100) return "conservative";
+    if (lev <= 130) return "balanced";
+    return "aggressive";
+  }
+
+  // Clicking a strategy card sets strategy AND snaps leverage to its default
+  function handleStrategyChange(s: StrategyMode) {
+    setStrategy(s);
+    const st = STRATEGIES.find((x) => x.id === s)!;
+    // Conservative → 1x; balanced → 1.1x (sensible default); aggressive → 1.5x
+    const defaults: Record<StrategyMode, number> = {
+      conservative: 100,
+      balanced: 110,
+      aggressive: 150,
+    };
+    setLeverage(defaults[s]);
+  }
+
+  // Moving the slider auto-updates the strategy badge
+  function handleLeverageChange(lev: number) {
+    setLeverage(lev);
+    setStrategy(leverageToStrategy(lev));
+  }
 
   const satoshiAmount  = parseBTCInput(amount);
   const wbtcBal        = toBalance(wbtcBalance);
@@ -177,32 +203,41 @@ export function DepositForm() {
       </div>
 
       {/* Strategy */}
-      <StrategySelector value={strategy} onChange={setStrategy} />
+      <StrategySelector value={strategy} onChange={handleStrategyChange} />
 
-      {/* Leverage */}
-      {strategy !== "conservative" && (
-        <LeverageSlider
-          value={leverage}
-          onChange={setLeverage}
-          maxLeverage={metrics?.maxLeverage ?? 200}
-        />
-      )}
+      {/* Leverage — only for non-conservative strategies; max capped to strategy bound */}
+      {strategy !== "conservative" && (() => {
+        const st = STRATEGIES.find((x) => x.id === strategy)!;
+        return (
+          <LeverageSlider
+            value={leverage}
+            onChange={handleLeverageChange}
+            minLeverage={101}
+            maxLeverage={st.leverageMax}
+          />
+        );
+      })()}
 
-      {/* APY estimate */}
-      {metrics && (
-        <div className="flex items-center gap-2 text-xs text-white/50 bg-white/3 rounded-lg px-3 py-2">
-          <Info className="w-3.5 h-3.5 text-emerald-400 shrink-0" />
-          Estimated APY: <span className="text-emerald-400 font-semibold">{bpsToPercent(metrics.apy)}</span>
-          {leverage > 100 && (
-            <span>
-              &nbsp;→ with {(leverage / 100).toFixed(2)}x leverage:&nbsp;
-              <span className="text-orange-400 font-semibold">
-                {(Number(metrics.apy) / 100 * (leverage / 100)).toFixed(2)}%
+      {/* APY estimate — use strategy ranges, not on-chain APY (which is 0 on testnet) */}
+      {(() => {
+        const st = STRATEGIES.find((x) => x.id === strategy)!;
+        const levMultiplier = leverage / 100;
+        const apyLow  = (st.apyRange[0] * levMultiplier).toFixed(1);
+        const apyHigh = (st.apyRange[1] * levMultiplier).toFixed(1);
+        const apyLabel = `${apyLow}–${apyHigh}%`;
+        return (
+          <div className="flex items-center gap-2 text-xs text-white/50 bg-white/3 rounded-lg px-3 py-2">
+            <Info className="w-3.5 h-3.5 text-emerald-400 shrink-0" />
+            Estimated APY:&nbsp;
+            <span className="text-emerald-400 font-semibold">{apyLabel}</span>
+            {leverage > 100 && (
+              <span className="text-white/30">
+                &nbsp;·&nbsp;{levMultiplier.toFixed(2)}× leverage
               </span>
-            </span>
-          )}
-        </div>
-      )}
+            )}
+          </div>
+        );
+      })()}
 
       {/* Action button */}
       <Button
