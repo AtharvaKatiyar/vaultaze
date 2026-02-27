@@ -50,9 +50,10 @@ log = get_logger(__name__)
 
 # ── Deployed contract addresses (Sepolia) ─────────────────────────────────────
 DEPLOYER_ADDRESS          = "0x01390501de9c3e2c1f06d97fd317c1cd002d95250ab6f58bf1f272bdb9f8ed18"
-MOCK_ORACLE_ADDRESS       = "0x06d1c9aa3cb65003c51a4b360c8ac3a23a9724530246031ba92ff0b2461f7e74"
 MOCK_WBTC_ADDRESS         = "0x0129f01b63b9eb403e07c9da8e69e2bed648a5fbc81fddb0b27768ee323bf446"
-BTCSECURITY_ROUTER_ADDR   = "0x014c306f04fd602c1a06f61367de622af2558972c7eead39600b5d99fd1e2639"
+BTCSECURITY_ROUTER_ADDR   = "0x079c852ec6c79d011a42eba2b0de16f13b9e35bdc42facf073ea2f7ffc579fc0"  # redeployed 24 Feb 2026
+# NOTE: MOCK_ORACLE_ADDRESS removed — router now uses live Pragma oracle.
+# refresh_btc_price() is not callable on Sepolia (Pragma feed is stale on testnet).
 
 # $95,000 in Pragma 8-decimal format (u128)
 DEFAULT_BTC_PRICE = 9_500_000_000_000
@@ -141,10 +142,12 @@ async def _exec_with_retry(calls: list[Call]) -> str:
 
 async def _execute_mint(recipient: str, amount_satoshi: int) -> str:
     """
-    Send a 3-call multicall:
-      1. oracle.set_price($95k)  — refreshes the timestamp
-      2. router.refresh_btc_price()  — syncs the router cache
-      3. wbtc.mint(recipient, amount_u256)
+    Mint test wBTC to the recipient.
+
+    NOTE: Oracle set_price + refresh_btc_price calls removed — the router now
+    uses the live Pragma oracle. Pragma's Sepolia feed is not regularly updated,
+    so refresh_btc_price() would revert with 'Pragma data too stale'. The
+    frontend shows an estimated fallback price (~$95,000) instead.
 
     Returns the confirmed transaction hash.
     """
@@ -152,16 +155,6 @@ async def _execute_mint(recipient: str, amount_satoshi: int) -> str:
     [low, high] = _u256_calldata(amount_satoshi)
 
     calls: list[Call] = [
-        Call(
-            to_addr=int(MOCK_ORACLE_ADDRESS, 16),
-            selector=get_selector_from_name("set_price"),
-            calldata=[DEFAULT_BTC_PRICE],
-        ),
-        Call(
-            to_addr=int(BTCSECURITY_ROUTER_ADDR, 16),
-            selector=get_selector_from_name("refresh_btc_price"),
-            calldata=[],
-        ),
         Call(
             to_addr=int(MOCK_WBTC_ADDRESS, 16),
             selector=get_selector_from_name("mint"),
@@ -246,32 +239,12 @@ async def health_check():
 @app.post("/oracle/refresh")
 async def refresh_oracle():
     """
-    Refresh the MockPragmaOracle price and sync the BTCSecurityRouter cache.
-    Does NOT mint any tokens — just keeps the oracle timestamp current so
-    the router returns a non-zero BTC price.
+    Previously refreshed MockPragmaOracle + router cache.
+    Router now uses live Pragma oracle — this endpoint is a no-op on Sepolia.
+    Pragma's testnet feed is not regularly updated; refresh_btc_price() would
+    revert with 'Pragma data too stale'.
     """
-    try:
-        account = await _get_account()
-        calls: list[Call] = [
-            Call(
-                to_addr=int(MOCK_ORACLE_ADDRESS, 16),
-                selector=get_selector_from_name("set_price"),
-                calldata=[DEFAULT_BTC_PRICE],
-            ),
-            Call(
-                to_addr=int(BTCSECURITY_ROUTER_ADDR, 16),
-                selector=get_selector_from_name("refresh_btc_price"),
-                calldata=[],
-            ),
-        ]
-        tx_hash = await _exec_with_retry(calls)
-        log.info("oracle.refreshed", tx_hash=tx_hash)
-        return {"tx_hash": tx_hash, "message": "Oracle price refreshed to $95,000"}
-    except RuntimeError as exc:
-        raise HTTPException(status_code=503, detail={"error": "not_configured", "message": str(exc)})
-    except Exception as exc:
-        log.error("oracle.refresh_error", error=str(exc))
-        raise HTTPException(status_code=500, detail={"error": "refresh_failed", "message": str(exc)[:400]})
+    return {"message": "No-op: router uses live Pragma oracle. Oracle refresh is not available on Sepolia testnet."}
 
 
 @app.get("/faucet/status", response_model=FaucetStatus)
