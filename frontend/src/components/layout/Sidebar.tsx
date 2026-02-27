@@ -19,7 +19,7 @@ import { EXPLORERS } from "@/lib/contracts/addresses";
 import { useNetworkMode } from "@/contexts/NetworkMode";
 
 const NAV = [
-  { href: "/",          label: "Dashboard",  icon: LayoutDashboard },
+  { href: "/dashboard", label: "Dashboard",  icon: LayoutDashboard },
   { href: "/vault",     label: "Vault",      icon: Vault },
   { href: "/portfolio", label: "Portfolio",  icon: Briefcase },
   { href: "/leverage",  label: "Leverage",   icon: Zap },
@@ -36,11 +36,8 @@ export function Sidebar() {
 
       {/* Logo */}
       <div className="flex items-center gap-2.5 px-2 mb-8">
-        <div className="w-8 h-8 rounded-xl bg-orange-500/20 border border-orange-500/30 flex items-center justify-center">
-          <Bitcoin className="w-4 h-4 text-orange-400" />
-        </div>
         <div className="flex-1 min-w-0">
-          <span className="text-white font-bold text-sm">BTC Vault</span>
+          <span className="text-white font-bold text-base">Vaultaze</span>
           <div className="flex items-center gap-1.5 mt-0.5">
             {mode === "sepolia" ? (
               <>
@@ -96,7 +93,7 @@ export function Sidebar() {
             rel="noopener noreferrer"
             className="flex items-center gap-1 text-[10px] text-orange-400 hover:text-orange-300 transition-colors"
           >
-            View on Starkscan <ExternalLink className="w-2.5 h-2.5" />
+            View on Voyager <ExternalLink className="w-2.5 h-2.5" />
           </a>
         </div>
       </div>

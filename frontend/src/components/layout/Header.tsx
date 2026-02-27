@@ -2,7 +2,7 @@
 
 import Link from "next/link";
 import { usePathname } from "next/navigation";
-import { Bitcoin, Menu, X } from "lucide-react";
+import { Menu, X } from "lucide-react";
 import { ConnectButton } from "@/components/wallet/ConnectButton";
 import { NetworkModeSwitcher } from "@/components/wallet/NetworkModeSwitcher";
 import { cn } from "@/lib/utils/cn";
@@ -10,7 +10,7 @@ import { useState } from "react";
 import { motion, AnimatePresence } from "framer-motion";
 
 const MOBILE_NAV = [
-  { href: "/",          label: "Dashboard" },
+  { href: "/dashboard", label: "Dashboard" },
   { href: "/vault",     label: "Vault" },
   { href: "/portfolio", label: "Portfolio" },
   { href: "/leverage",  label: "Leverage" },
@@ -28,17 +28,16 @@ export function Header() {
 
           {/* Mobile logo */}
           <div className="flex items-center gap-2 lg:hidden">
-            <div className="w-7 h-7 rounded-lg bg-orange-500/20 border border-orange-500/30 flex items-center justify-center">
-              <Bitcoin className="w-3.5 h-3.5 text-orange-400" />
-            </div>
-            <span className="text-white font-bold text-sm">BTC Vault</span>
+            <span className="text-white font-bold text-base">Vaultaze</span>
           </div>
 
           {/* Desktop breadcrumb */}
           <div className="hidden lg:flex items-center gap-2 text-sm text-white/40">
-            <span>BTC Vault</span>
+            <span>Vaultaze</span>
             <span>/</span>
-            <span className="text-white capitalize">{pathname.slice(1) || "Dashboard"}</span>
+            <span className="text-white capitalize">
+              {pathname === "/dashboard" ? "Dashboard" : pathname.slice(1) || "Dashboard"}
+            </span>
           </div>
 
           <div className="flex items-center gap-2">

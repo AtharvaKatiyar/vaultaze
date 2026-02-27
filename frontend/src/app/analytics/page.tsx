@@ -10,7 +10,8 @@ import {
   ResponsiveContainer, CartesianGrid, PieChart, Pie, Cell
 } from "recharts";
 import { CONTRACTS, EXPLORERS } from "@/lib/contracts/addresses";
-import { ExternalLink, BarChart3 } from "lucide-react";
+import { ExternalLink, BarChart3, Eye, RefreshCw, UserCheck, ShieldAlert } from "lucide-react";
+import { useAuthGuard } from "@/lib/hooks/useAuthGuard";
 
 // Mock historical data for charts (replace with real indexer data in production)
 const healthHistory = [
@@ -40,6 +41,7 @@ const CHART_TOOLTIP_STYLE = {
 };
 
 export default function AnalyticsPage() {
+  useAuthGuard();
   const { data: metrics }   = useSystemMetrics();
   const { data: backing }   = useRouterBacking();
   const { data: exposure }  = useRouterExposure();
@@ -202,6 +204,134 @@ export default function AnalyticsPage() {
                 <ExternalLink className="w-3 h-3 text-white/20 group-hover:text-orange-400 shrink-0 ml-2" />
               </a>
             ))}
+          </div>
+        </Card>
+
+        {/* ── Autonomous Agents ── */}
+        <Card glass>
+          <CardTitle className="flex items-center gap-1.5 mb-2">
+            Autonomous Agents
+          </CardTitle>
+          <p className="text-xs text-white/30 mb-5">
+            Three off-chain bots run continuously, calling only public contract functions.
+            They have no special permissions — they cannot drain funds or override user choices.
+          </p>
+          <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+
+            {/* Risk Sentinel */}
+            <div className="rounded-xl bg-red-500/5 border border-red-500/10 p-4 space-y-3">
+              <div className="flex items-center gap-2">
+                <div className="w-8 h-8 rounded-xl bg-red-500/15 flex items-center justify-center">
+                  <Eye className="w-4 h-4 text-red-400" />
+                </div>
+                <div>
+                  <p className="text-sm font-semibold text-white">Risk Sentinel</p>
+                  <p className="text-[10px] text-white/30">BTC price &amp; volatility monitor</p>
+                </div>
+              </div>
+              <div className="space-y-2 text-[11px]">
+                <p className="text-white/50 leading-relaxed">
+                  Polls BTC price across three exchanges every N seconds. If the 1-hour price
+                  change exceeds <span className="text-white/70 font-medium">−10%</span> or
+                  annualised volatility exceeds <span className="text-white/70 font-medium">80%</span>,
+                  it calls <code className="text-red-400/80 bg-red-500/8 px-1 py-0.5 rounded">enter_safe_mode()</code> on
+                  the security router.
+                </p>
+                <div className="pt-2 border-t border-red-500/10 space-y-1.5">
+                  <div className="flex justify-between">
+                    <span className="text-white/40">Trigger 1</span>
+                    <span className="text-white/60">&gt;10% 1h drop</span>
+                  </div>
+                  <div className="flex justify-between">
+                    <span className="text-white/40">Trigger 2</span>
+                    <span className="text-white/60">&gt;80% annualised vol.</span>
+                  </div>
+                  <div className="flex justify-between">
+                    <span className="text-white/40">Safe mode now</span>
+                    <span className={metrics?.isSafeMode ? "text-red-400 font-medium" : "text-emerald-400"}>
+                      {metrics ? (metrics.isSafeMode ? "Active ⚠" : "Inactive ✓") : "—"}
+                    </span>
+                  </div>
+                </div>
+              </div>
+            </div>
+
+            {/* Strategy Rebalancer */}
+            <div className="rounded-xl bg-purple-500/5 border border-purple-500/10 p-4 space-y-3">
+              <div className="flex items-center gap-2">
+                <div className="w-8 h-8 rounded-xl bg-purple-500/15 flex items-center justify-center">
+                  <RefreshCw className="w-4 h-4 text-purple-400" />
+                </div>
+                <div>
+                  <p className="text-sm font-semibold text-white">Strategy Rebalancer</p>
+                  <p className="text-[10px] text-white/30">Yield accrual &amp; leverage manager</p>
+                </div>
+              </div>
+              <div className="space-y-2 text-[11px]">
+                <p className="text-white/50 leading-relaxed">
+                  Calls <code className="text-purple-400/80 bg-purple-500/8 px-1 py-0.5 rounded">trigger_yield_accrual()</code> hourly
+                  and refreshes the Pragma oracle. Also computes recommended leverage
+                  from the current system health and warns when users should de-risk.
+                </p>
+                <div className="pt-2 border-t border-purple-500/10 space-y-1.5">
+                  <div className="flex justify-between">
+                    <span className="text-white/40">Yield cycle</span>
+                    <span className="text-white/60">Every hour</span>
+                  </div>
+                  <div className="flex justify-between">
+                    <span className="text-white/40">No-leverage threshold</span>
+                    <span className="text-white/60">Health &lt;1.10</span>
+                  </div>
+                  <div className="flex justify-between">
+                    <span className="text-white/40">Reduce threshold</span>
+                    <span className="text-white/60">Health &lt;1.20</span>
+                  </div>
+                  <div className="flex justify-between">
+                    <span className="text-white/40">Current APY</span>
+                    <span className="text-emerald-400">{metrics ? bpsToPercent(metrics.apy) : "—"}</span>
+                  </div>
+                </div>
+              </div>
+            </div>
+
+            {/* User Guardian */}
+            <div className="rounded-xl bg-yellow-500/5 border border-yellow-500/10 p-4 space-y-3">
+              <div className="flex items-center gap-2">
+                <div className="w-8 h-8 rounded-xl bg-yellow-500/15 flex items-center justify-center">
+                  <UserCheck className="w-4 h-4 text-yellow-400" />
+                </div>
+                <div>
+                  <p className="text-sm font-semibold text-white">User Guardian</p>
+                  <p className="text-[10px] text-white/30">Liquidation bot</p>
+                </div>
+              </div>
+              <div className="space-y-2 text-[11px]">
+                <p className="text-white/50 leading-relaxed">
+                  Tracks every depositor address via the event indexer. Each cycle it batch-checks
+                  health factors and calls <code className="text-yellow-400/80 bg-yellow-500/8 px-1 py-0.5 rounded">liquidate(user)</code> for
+                  positions at or below 1.00, protecting the vault's solvency.
+                </p>
+                <div className="pt-2 border-t border-yellow-500/10 space-y-1.5">
+                  <div className="flex justify-between">
+                    <span className="text-white/40">Liquidate at</span>
+                    <span className="text-white/60">Health ≤ 1.00</span>
+                  </div>
+                  <div className="flex justify-between">
+                    <span className="text-white/40">Warn at</span>
+                    <span className="text-white/60">Health ≤ 1.30</span>
+                  </div>
+                  <div className="flex justify-between">
+                    <span className="text-white/40">Retry cooldown</span>
+                    <span className="text-white/60">60 seconds</span>
+                  </div>
+                  <div className="flex justify-between">
+                    <span className="text-white/40">What's liquidated</span>
+                    <span className="text-white/60">Debt repaid from collateral</span>
+                  </div>
+                </div>
+              </div>
+            </div>
+
           </div>
         </Card>
 

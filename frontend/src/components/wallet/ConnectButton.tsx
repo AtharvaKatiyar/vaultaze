@@ -9,7 +9,7 @@ import { useState, useRef, useEffect } from "react";
 import { motion, AnimatePresence } from "framer-motion";
 import Link from "next/link";
 
-const STARKSCAN = "https://sepolia.starkscan.co";
+const STARKSCAN = "https://sepolia.voyager.online";
 
 export function ConnectButton() {
   const { address, isConnected } = useAccount();

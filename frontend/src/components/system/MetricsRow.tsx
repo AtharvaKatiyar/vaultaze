@@ -1,7 +1,6 @@
 "use client";
 
-import { useState } from "react";
-import { TrendingUp, DollarSign, Layers, Zap, ShieldCheck, RefreshCw } from "lucide-react";
+import { TrendingUp, DollarSign, Layers, Zap, ShieldCheck } from "lucide-react";
 import { Card, CardTitle, CardValue } from "@/components/ui/Card";
 import { HealthBadge } from "@/components/system/HealthBadge";
 import { useSystemMetrics } from "@/lib/hooks/useRouterData";
@@ -10,12 +9,9 @@ import { formatBTC, formatUSD, pragmaToUSD, bpsToPercent, formatLeverage } from 
 // Fallback BTC price shown when the on-chain oracle is stale (>1 hour old).
 // The Cairo router spec (S-4) explicitly returns 0 for get_btc_usd_price when stale.
 const FALLBACK_BTC_PRICE = 95_000;
-const FAUCET_API = process.env.NEXT_PUBLIC_FAUCET_API_URL ?? "http://localhost:8400";
 
 export function MetricsRow() {
   const { data, loading } = useSystemMetrics();
-  const [refreshing, setRefreshing] = useState(false);
-  const [refreshed,  setRefreshed]  = useState(false);
 
   const skeleton = <span className="block h-7 w-24 rounded-lg bg-white/5 animate-pulse" />;
 
@@ -27,51 +23,29 @@ export function MetricsRow() {
   const tvlBTC = data ? formatBTC(data.totalAssets, 4) : "—";
   const tvlUSD = data ? formatUSD(btcPrice * (Number(data.totalAssets) / 1e8)) : "—";
 
-  // health cascades from price — don't show "critical" when price is simply stale
-  const healthIsStale = priceIsStale && data?.btcHealth === 0;
-
-  async function handleRefreshOracle() {
-    setRefreshing(true);
-    try {
-      await fetch(`${FAUCET_API}/oracle/refresh`, { method: "POST" });
-      setRefreshed(true);
-      setTimeout(() => setRefreshed(false), 5000);
-    } catch { /* server unreachable */ }
-    finally { setRefreshing(false); }
-  }
+  // Health is independent of oracle price — always show the badge regardless of price staleness.
+  // healthIsUnknown is retained on the data object for future diagnostics only.
 
   return (
     <div className="space-y-3">
-      {/* Stale price banner */}
+      {/* Stale price banner — informational only, no broken refresh button */}
       {priceIsStale && (
-        <div className="flex items-center justify-between bg-orange-500/10 border border-orange-500/20 rounded-xl px-4 py-2.5">
+        <div className="flex items-center gap-3 bg-orange-500/10 border border-orange-500/20 rounded-xl px-4 py-2.5">
           <p className="text-xs text-orange-300">
-            ⚠ Oracle price stale — metrics are estimated. Last known: ~$95,000.
+            ⚠ On-chain oracle price is stale on Sepolia testnet. Displaying estimated price (~$95,000). Health metrics are unaffected.
           </p>
-          <button
-            onClick={handleRefreshOracle}
-            disabled={refreshing}
-            className="ml-4 shrink-0 flex items-center gap-1.5 text-xs bg-orange-500/15 hover:bg-orange-500/25 border border-orange-500/25 text-orange-300 rounded-lg px-3 py-1.5 transition-colors disabled:opacity-50"
-          >
-            <RefreshCw className={`w-3 h-3 ${refreshing ? "animate-spin" : ""}`} />
-            {refreshed ? "Refreshed ✓" : refreshing ? "Refreshing…" : "Refresh Price"}
-          </button>
         </div>
       )}
 
       <div className="grid grid-cols-2 md:grid-cols-3 xl:grid-cols-5 gap-4">
 
         {/* BTC Health */}
-        <Card glow={healthIsStale ? "orange" : data?.healthStatus === "healthy" ? "green" : data?.healthStatus === "critical" ? "red" : "orange"}>
+        <Card glow={data?.healthStatus === "healthy" ? "green" : data?.healthStatus === "critical" ? "red" : "orange"}>
           <CardTitle className="flex items-center gap-1.5">
             <ShieldCheck className="w-3.5 h-3.5" /> BTC Health
           </CardTitle>
           <div className="mt-2">
-            {loading
-              ? skeleton
-              : healthIsStale
-                ? <span className="text-base font-bold text-orange-400">— stale</span>
-                : <HealthBadge health={data!.btcHealth} />}
+            {loading ? skeleton : <HealthBadge health={data!.btcHealth} />}
           </div>
         </Card>
 
@@ -84,7 +58,7 @@ export function MetricsRow() {
             {loading ? skeleton : formatUSD(btcPrice)}
           </CardValue>
           {!loading && priceIsStale && (
-            <p className="text-xs text-orange-400/70 mt-1">est. · stale</p>
+            <p className="text-xs text-orange-400/70 mt-1">est. · oracle stale</p>
           )}
         </Card>
 

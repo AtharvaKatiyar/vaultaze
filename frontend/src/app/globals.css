@@ -17,6 +17,39 @@
   input[type="range"] { -webkit-appearance: none; }
 }
 
+@keyframes float {
+  0%, 100% { transform: translateY(0px); }
+  50%       { transform: translateY(-8px); }
+}
+
+@keyframes float-slow {
+  0%, 100% { transform: translateY(0px); }
+  50%       { transform: translateY(-6px); }
+}
+
+@keyframes float-tiny {
+  0%, 100% { transform: translateY(0px); }
+  50%       { transform: translateY(-4px); }
+}
+
+.animate-float      { animation: float      5s ease-in-out infinite; will-change: transform; }
+.animate-float-slow { animation: float-slow 6.5s ease-in-out infinite 0.8s; will-change: transform; }
+.animate-float-tiny { animation: float-tiny 4s ease-in-out infinite 0.4s; will-change: transform; }
+
+@keyframes shimmer {
+  0%, 100% { background-position: 0% center; }
+  50%       { background-position: 100% center; }
+}
+.animate-gradient {
+  background: linear-gradient(90deg, #F7931A, #FBBF24, #F7931A);
+  background-size: 200% auto;
+  -webkit-background-clip: text;
+  background-clip: text;
+  -webkit-text-fill-color: transparent;
+  color: transparent;
+  animation: shimmer 3s ease-in-out infinite;
+}
+
 :root {
   --background: #ffffff;
   --foreground: #171717;

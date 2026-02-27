@@ -5,10 +5,11 @@
 export type HealthStatus = "healthy" | "moderate" | "warning" | "critical";
 
 export interface SystemMetrics {
-  btcHealth: number;        // × 100, e.g. 142 = 1.42x
+  btcHealth: number;        // × 100, e.g. 142 = 1.42x.  999999 = ∞ (no exposure)
   healthStatus: HealthStatus;
+  healthIsUnknown: boolean; // true when the health hook returned undefined (RPC error / first load)
   isSafeMode: boolean;
-  btcUsdPrice: number;      // 8-decimal Pragma price
+  btcUsdPrice: number;      // 8-decimal Pragma price; 0 = stale oracle
   totalAssets: bigint;      // satoshi
   sharePrice: bigint;       // SCALE = 1_000_000
   apy: number;              // basis points

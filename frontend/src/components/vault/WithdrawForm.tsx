@@ -158,11 +158,11 @@ export function WithdrawForm() {
           <div>
             <p className="text-sm text-emerald-300 font-medium">Withdrawal successful!</p>
             <a
-              href={`https://sepolia.starkscan.co/tx/${tx.hash}`}
+              href={`https://sepolia.voyager.online/tx/${tx.hash}`}
               target="_blank"
               className="text-xs text-emerald-400/70 hover:text-emerald-300 underline"
             >
-              View on Starkscan →
+              View on Voyager →
             </a>
           </div>
         </motion.div>

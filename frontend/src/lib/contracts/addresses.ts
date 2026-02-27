@@ -3,18 +3,17 @@
 // ─────────────────────────────────────────
 
 export const CONTRACTS = {
-  BTCVault:          "0x0047970cfbf8de94f268f2416c9e5cbaef520dae7b5eae0fd6476a41b7266f08",
-  BTCSecurityRouter: "0x014c306f04fd602c1a06f61367de622af2558972c7eead39600b5d99fd1e2639",
-  YBTCToken:         "0x04ea131f51c071ce677482a4eeb1f9ac31e9188b2a92de13cb7043f9f21c8166",
+  BTCVault:          "0x04f3f2276f3c8e1d20296c0cf95329211fd22caa58898caf298c79160c281cdc",
+  BTCSecurityRouter: "0x079c852ec6c79d011a42eba2b0de16f13b9e35bdc42facf073ea2f7ffc579fc0",
+  YBTCToken:         "0x03100f429e329e8db8a21d603222459c29326c808a6e4c3ec1dd9003e6854b8a",
   MockWBTC:          "0x0129f01b63b9eb403e07c9da8e69e2bed648a5fbc81fddb0b27768ee323bf446",
-  MockPragmaOracle:  "0x06d1c9aa3cb65003c51a4b360c8ac3a23a9724530246031ba92ff0b2461f7e74",
 } as const;
 
 export const EXPLORERS = {
-  BTCVault:          "https://sepolia.starkscan.co/contract/0x0047970cfbf8de94f268f2416c9e5cbaef520dae7b5eae0fd6476a41b7266f08",
-  BTCSecurityRouter: "https://sepolia.starkscan.co/contract/0x014c306f04fd602c1a06f61367de622af2558972c7eead39600b5d99fd1e2639",
-  YBTCToken:         "https://sepolia.starkscan.co/contract/0x04ea131f51c071ce677482a4eeb1f9ac31e9188b2a92de13cb7043f9f21c8166",
-  MockWBTC:          "https://sepolia.starkscan.co/contract/0x0129f01b63b9eb403e07c9da8e69e2bed648a5fbc81fddb0b27768ee323bf446",
+  BTCVault:          "https://sepolia.voyager.online/contract/0x04f3f2276f3c8e1d20296c0cf95329211fd22caa58898caf298c79160c281cdc",
+  BTCSecurityRouter: "https://sepolia.voyager.online/contract/0x079c852ec6c79d011a42eba2b0de16f13b9e35bdc42facf073ea2f7ffc579fc0",
+  YBTCToken:         "https://sepolia.voyager.online/contract/0x03100f429e329e8db8a21d603222459c29326c808a6e4c3ec1dd9003e6854b8a",
+  MockWBTC:          "https://sepolia.voyager.online/contract/0x0129f01b63b9eb403e07c9da8e69e2bed648a5fbc81fddb0b27768ee323bf446",
 } as const;
 
 /** Minimum deposit: 0.01 BTC */

@@ -7,9 +7,9 @@ import { NetworkModeProvider } from "@/contexts/NetworkMode";
 const geist = Geist({ subsets: ["latin"], variable: "--font-geist" });
 
 export const metadata: Metadata = {
-  title: "BTC Vault — Autonomous BTC Security Infrastructure on Starknet",
+  title: "Vaultaze — Autonomous Bitcoin Yield Vault on Starknet",
   description:
-    "Earn yield on your BTC with autonomous risk management, powered by the BTC Security Router on Starknet Sepolia.",
+    "Earn yield on your BTC with Vaultaze. Non-custodial Bitcoin yield vault powered by the autonomous BTC Security Router on Starknet Sepolia.",
 };
 
 export default function RootLayout({ children }: { children: React.ReactNode }) {

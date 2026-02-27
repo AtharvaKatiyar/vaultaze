@@ -1,6 +1,7 @@
 "use client";
 
 import { useReadContract } from "@starknet-react/core";
+import { useRef } from "react";
 import { CONTRACTS } from "@/lib/contracts/addresses";
 import { ROUTER_ABI } from "@/lib/contracts/router-abi";
 import { VAULT_ABI } from "@/lib/contracts/vault-abi";
@@ -119,15 +120,19 @@ export function useSystemMetrics(): { data: SystemMetrics | null; loading: boole
 
   const loading = l1 || l2 || l3 || l4 || l5 || l6 || l7 || l8 || l9 || l10;
 
+  // After the first successful render we never blank the UI again — subsequent
+  // watch:true refreshes or transient RPC errors show stale data instead of null.
+  const hasEverLoadedRef = useRef(false);
+
   const data = useMemo<SystemMetrics | null>(() => {
-    // Keep null while any hook is still in its initial fetch
-    if (loading) return null;
+    // Block UI only on the very first fetch before any data is available.
+    if (loading && !hasEverLoadedRef.current) return null;
 
     // Helper: convert Uint256 | bigint | number | undefined → bigint
     const toBigInt = (v: unknown): bigint => {
       if (v == null) return 0n;
       if (typeof v === "bigint") return v;
-      if (typeof v === "number") return BigInt(v);
+      if (typeof v === "number") return BigInt(Math.floor(v));
       if (typeof v === "string") return BigInt(v);
       if (typeof v === "object" && "low" in (v as object) && "high" in (v as object)) {
         const u = v as { low: bigint; high: bigint };
@@ -136,28 +141,46 @@ export function useSystemMetrics(): { data: SystemMetrics | null; loading: boole
       return 0n;
     };
 
+    // Safely convert health to BigInt — starknet.js may return bigint or number
+    // depending on the library version; compare as BigInt to avoid TypeError.
+    const rawHealthValue = health as bigint | number | undefined;
+    const healthIsUnknown = rawHealthValue === undefined;
+    let rawHealth: bigint | undefined;
+    if (rawHealthValue === undefined) {
+      rawHealth = undefined;
+    } else if (typeof rawHealthValue === "bigint") {
+      rawHealth = rawHealthValue;
+    } else {
+      rawHealth = BigInt(Math.floor(rawHealthValue as number));
+    }
+
     // Raw health value (×100 integer). u128::MAX means btc_exposure=0 → no open leverage.
     // We use sentinel 999999 so HealthBadge can display "∞ (No Exposure)".
-    const rawHealth = health as bigint | undefined;
+    // When the RPC call fails (undefined), we also default to 999999 — a fresh vault
+    // with no exposure registered IS the no-exposure state.
     const h: number =
-      rawHealth === undefined           ? 0
+      rawHealth === undefined           ? 999999        // RPC failed → assume no exposure
       : rawHealth >= U128_MAX           ? 999999        // no exposure → perfectly safe
       : Number(rawHealth);
 
-    return {
-      btcHealth:    h,
-      healthStatus: healthToStatus(h) as HealthStatus,
-      isSafeMode:   Boolean(safeMode),
-      btcUsdPrice:  Number((btcPrice as bigint | undefined) ?? 0n),
-      totalAssets:  toBigInt(totalAssets),
-      sharePrice:   toBigInt(sharePrice),
-      apy:          Number((apy as bigint | undefined) ?? 0n),
-      maxLeverage:  Number((maxLeverage as bigint | undefined) ?? 0n),
-      maxLtv:       0,
-      btcBacking:   toBigInt(backing),
-      btcExposure:  toBigInt(exposure),
-      isPriceFresh: Boolean(isPriceFresh ?? false),
+    const result: SystemMetrics = {
+      btcHealth:      h,
+      healthStatus:   healthToStatus(h) as HealthStatus,
+      healthIsUnknown,
+      isSafeMode:     Boolean(safeMode),
+      btcUsdPrice:    Number((btcPrice as bigint | undefined) ?? 0n),
+      totalAssets:    toBigInt(totalAssets),
+      sharePrice:     toBigInt(sharePrice),
+      apy:            Number((apy as bigint | undefined) ?? 0n),
+      maxLeverage:    Number((maxLeverage as bigint | undefined) ?? 0n),
+      maxLtv:         0,
+      btcBacking:     toBigInt(backing),
+      btcExposure:    toBigInt(exposure),
+      isPriceFresh:   Boolean(isPriceFresh ?? false),
     };
+
+    hasEverLoadedRef.current = true;
+    return result;
   }, [loading, health, safeMode, maxLeverage, btcPrice, backing, exposure, isPriceFresh, totalAssets, sharePrice, apy]);
 
   return { data, loading };

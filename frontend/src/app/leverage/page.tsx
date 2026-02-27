@@ -13,6 +13,7 @@ import { useYBTCBalance } from "@/lib/hooks/useUserPosition";
 import { formatLeverage, formatUSD, pragmaToUSD, formatBTC } from "@/lib/utils/format";
 import { CONTRACTS } from "@/lib/contracts/addresses";
 import { TxState } from "@/types";
+import { useAuthGuard } from "@/lib/hooks/useAuthGuard";
 import {
   Zap, AlertTriangle, TrendingUp, TrendingDown,
   CheckCircle2, XCircle, Info, Wallet
@@ -20,6 +21,7 @@ import {
 import { motion } from "framer-motion";
 
 export default function LeveragePage() {
+  useAuthGuard();
   const { address }            = useAccount();
   const { data: metrics }      = useSystemMetrics();
   const { data: position }     = useUserPosition();
@@ -213,9 +215,9 @@ export default function LeveragePage() {
             <CheckCircle2 className="w-4 h-4 text-emerald-400 mt-0.5 shrink-0" />
             <div>
               <p className="text-sm text-emerald-300 font-medium">Leverage updated!</p>
-              <a href={`https://sepolia.starkscan.co/tx/${tx.hash}`} target="_blank"
+              <a href={`https://sepolia.voyager.online/tx/${tx.hash}`} target="_blank"
                 className="text-xs text-emerald-400/70 hover:text-emerald-300 underline">
-                View on Starkscan →
+                View on Voyager →
               </a>
             </div>
           </motion.div>

@@ -1,6 +1,7 @@
 "use client";
 
 import React, { useState, useEffect } from "react";
+import { useAuthGuard } from "@/lib/hooks/useAuthGuard";
 import { AppLayout } from "@/components/layout/AppLayout";
 import { Card, CardTitle } from "@/components/ui/Card";
 import { Button } from "@/components/ui/Button";
@@ -27,8 +28,6 @@ import { useAccount, useSendTransaction } from "@starknet-react/core";
 import { shortAddress, formatBTC } from "@/lib/utils/format";
 import { CONTRACTS } from "@/lib/contracts/addresses";
 import {
-  MOCK_ORACLE_ADDRESS,
-  DEFAULT_BTC_PRICE,
   DEPLOYER_ADDRESS,
 } from "@/lib/contracts/mock-abi";
 import { uint256 } from "starknet";
@@ -38,7 +37,7 @@ import { motion, AnimatePresence } from "framer-motion";
 
 const FAUCET_API =
   process.env.NEXT_PUBLIC_FAUCET_API_URL ?? "http://localhost:8400";
-const STARKSCAN  = "https://sepolia.starkscan.co";
+const STARKSCAN  = "https://sepolia.voyager.online";
 
 const AMOUNT_PRESETS = [
   { label: "0.1 wBTC", satoshi: 10_000_000  },
@@ -108,6 +107,7 @@ interface ApiError {
 // ─── Faucet Page ─────────────────────────────────────────────────────────────
 
 export default function FaucetPage() {
+  useAuthGuard();
   const { address, isConnected } = useAccount();
   const { sendAsync } = useSendTransaction({});
 
@@ -199,19 +199,16 @@ export default function FaucetPage() {
 
   function handleQuickMint() {
     const amountU256 = uint256.bnToUint256(BigInt(satoshiAmount));
+    // Router uses live Pragma oracle now — MockPragmaOracle is no longer active.
+    // Oracle refresh is not possible on Sepolia (Pragma feed is stale on testnet).
+    // Quick mint just mints test wBTC for the recipient.
     run(setQuickTx, [
-      { contractAddress: MOCK_ORACLE_ADDRESS, entrypoint: "set_price", calldata: [DEFAULT_BTC_PRICE] },
-      { contractAddress: CONTRACTS.BTCSecurityRouter, entrypoint: "refresh_btc_price", calldata: [] },
       { contractAddress: CONTRACTS.MockWBTC, entrypoint: "mint", calldata: [recipientAddr, amountU256.low.toString(), amountU256.high.toString()] },
     ]);
   }
 
-  function handleSetOraclePrice() {
-    run(setOracleTx, [{ contractAddress: MOCK_ORACLE_ADDRESS, entrypoint: "set_price", calldata: [DEFAULT_BTC_PRICE] }]);
-  }
-  function handleRefreshRouterPrice() {
-    run(setRefreshTx, [{ contractAddress: CONTRACTS.BTCSecurityRouter, entrypoint: "refresh_btc_price", calldata: [] }]);
-  }
+  // Note: handleSetOraclePrice and handleRefreshRouterPrice removed.
+  // The router now uses live Pragma oracle — MockPragmaOracle is no longer active.
   function handleMintOnly() {
     const amountU256 = uint256.bnToUint256(BigInt(satoshiAmount));
     run(setMintTx, [{ contractAddress: CONTRACTS.MockWBTC, entrypoint: "mint", calldata: [recipientAddr, amountU256.low.toString(), amountU256.high.toString()] }]);
@@ -364,7 +361,7 @@ export default function FaucetPage() {
                   className="flex items-center gap-1.5 text-xs text-blue-400 hover:text-blue-300 mt-1"
                 >
                   <ExternalLink className="w-3 h-3" />
-                  View transaction on Starkscan
+                  View transaction on Voyager
                 </a>
                 <div className="mt-3 pt-3 border-t border-emerald-500/15 flex gap-2">
                   <a href="/vault" className="flex-1 text-center text-xs py-1.5 rounded-lg bg-orange-500/15 hover:bg-orange-500/20 border border-orange-500/20 text-orange-300 transition-colors">
@@ -440,7 +437,7 @@ export default function FaucetPage() {
               <span className="w-6 h-6 shrink-0 rounded-lg bg-blue-500/15 border border-blue-500/20 flex items-center justify-center text-blue-400 font-bold text-[10px]">2</span>
               <div>
                 <p className="text-white/70 font-medium">Click "Get wBTC"</p>
-                <p>The faucet server (deployer-run) sends a multicall: sets oracle price, syncs the Security Router, then mints wBTC to your address.</p>
+                <p>The faucet server (deployer-run) mints test wBTC directly to your address on Sepolia. Oracle price is sourced from live Pragma (read-only on testnet).</p>
               </div>
             </div>
             <div className="flex gap-3">
@@ -509,38 +506,25 @@ export default function FaucetPage() {
                 <StatusRow info={quickTx} label="Setting up & minting" />
               </Card>
 
-              {/* Step 1 */}
-              <Card>
+              {/* Step 1 — Oracle is now live Pragma (no mock oracle) */}
+              <Card className="border-white/8 bg-white/[0.02]">
                 <CardTitle className="mb-1 flex items-center gap-2">
-                  <Zap className="w-3.5 h-3.5 text-yellow-400" /> Step 1 — Set Oracle Price
+                  <Zap className="w-3.5 h-3.5 text-yellow-400" /> Oracle — Live Pragma Feed
                 </CardTitle>
-                <p className="text-white/40 text-xs mb-3">
-                  Sets BTC/USD = $95,000 on MockPragmaOracle.
+                <p className="text-white/40 text-xs mt-1">
+                  The router now uses the live <strong className="text-white/60">Pragma</strong> BTC/USD oracle.
+                  The old MockPragmaOracle is no longer active. Oracle price refresh is not available
+                  on Sepolia testnet (Pragma&apos;s testnet feed is not regularly updated).
+                  The frontend displays an estimated price of ~$95,000 when the feed is stale.
                 </p>
-                <Button onClick={handleSetOraclePrice} disabled={!isConnected || !isDeployer || oracleTx.step === "pending"} className="w-full" variant="ghost">
-                  {oracleTx.step === "pending" ? "Sending…" : "set_price($95,000)"}
-                </Button>
-                <StatusRow info={oracleTx} label="Setting oracle price" />
               </Card>
 
-              {/* Step 2 */}
-              <Card>
-                <CardTitle className="mb-1 flex items-center gap-2">
-                  <RefreshCw className="w-3.5 h-3.5 text-blue-400" /> Step 2 — Refresh Router Cache
-                </CardTitle>
-                <p className="text-white/40 text-xs mb-3">
-                  Calls <code className="bg-white/5 px-1 rounded">refresh_btc_price()</code> on BTCSecurityRouter.
-                </p>
-                <Button onClick={handleRefreshRouterPrice} disabled={!isConnected || !isDeployer || refreshTx.step === "pending"} className="w-full" variant="ghost">
-                  {refreshTx.step === "pending" ? "Sending…" : "refresh_btc_price()"}
-                </Button>
-                <StatusRow info={refreshTx} label="Refreshing router" />
-              </Card>
+              {/* Step 2 replaced — refresh_btc_price fails on Sepolia (Pragma data too stale) */}
 
-              {/* Step 3 */}
+              {/* Step 1 (was Step 3) — Mint wBTC */}
               <Card>
                 <CardTitle className="mb-1 flex items-center gap-2">
-                  <Droplets className="w-3.5 h-3.5 text-orange-400" /> Step 3 — Mint wBTC Only
+                  <Droplets className="w-3.5 h-3.5 text-orange-400" /> Step 1 — Mint wBTC Only
                 </CardTitle>
                 <p className="text-white/40 text-xs mb-3">
                   Calls <code className="bg-white/5 px-1 rounded">mint(recipient, amount)</code> on MockWBTC.
@@ -557,11 +541,8 @@ export default function FaucetPage() {
                   <Info className="w-3.5 h-3.5" /> CLI (starkli)
                 </CardTitle>
                 <div className="bg-black/40 rounded-lg p-3 text-xs font-mono text-white/50 space-y-1 overflow-x-auto">
-                  <p className="text-white/25"># 1. Set oracle price</p>
-                  <p className="text-emerald-400">starkli invoke {shortAddress(MOCK_ORACLE_ADDRESS)} set_price u128:{DEFAULT_BTC_PRICE}</p>
-                  <p className="mt-2 text-white/25"># 2. Refresh router cache</p>
-                  <p className="text-emerald-400">starkli invoke {shortAddress(CONTRACTS.BTCSecurityRouter)} refresh_btc_price</p>
-                  <p className="mt-2 text-white/25"># 3. Mint 1 wBTC to your address</p>
+                  <p className="text-white/25"># Oracle refresh is not available on Sepolia (Pragma feed is stale)</p>
+                  <p className="text-white/25"># Mint test wBTC directly to your address</p>
                   <p className="text-emerald-400">starkli invoke {shortAddress(CONTRACTS.MockWBTC)} mint &lt;YOUR_ADDRESS&gt; u256:100000000</p>
                 </div>
               </Card>
@@ -569,12 +550,42 @@ export default function FaucetPage() {
           )}
         </AnimatePresence>
 
+        {/* ── Old vault recovery notice */}
+        <Card className="border-yellow-500/20 bg-yellow-500/[0.03]">
+          <CardTitle className="mb-2 flex items-center gap-2 text-yellow-300">
+            <AlertTriangle className="w-3.5 h-3.5" /> Redeployed Contracts — Recover Old yBTC
+          </CardTitle>
+          <p className="text-xs text-white/50 mb-3">
+            If you deposited into the vault <strong className="text-white/70">before 24 Feb 2026</strong>, your yBTC is on the old
+            contract. Withdraw from the old vault to recover your wBTC, then re-deposit into the new vault.
+          </p>
+          <div className="space-y-1.5 text-xs font-mono text-white/40 bg-black/30 rounded-lg p-3 mb-3">
+            <p><span className="text-yellow-400/70">Old BTCVault:</span> 0x0047970cfbf8de94f268f2416c9e5cbaef520dae7b5eae0fd6476a41b7266f08</p>
+            <p><span className="text-yellow-400/70">Old YBTCToken:</span> 0x04ea131f51c071ce677482a4eeb1f9ac31e9188b2a92de13cb7043f9f21c8166</p>
+          </div>
+          <div className="flex gap-2">
+            <a
+              href="https://sepolia.voyager.online/contract/0x0047970cfbf8de94f268f2416c9e5cbaef520dae7b5eae0fd6476a41b7266f08#writeContract"
+              target="_blank" rel="noreferrer"
+              className="flex items-center gap-1.5 text-xs bg-yellow-500/10 hover:bg-yellow-500/15 border border-yellow-500/20 text-yellow-300 rounded-lg px-3 py-1.5 transition-colors"
+            >
+              <ExternalLink className="w-3 h-3" /> Call withdraw() on old vault
+            </a>
+            <a
+              href="https://sepolia.voyager.online/contract/0x04ea131f51c071ce677482a4eeb1f9ac31e9188b2a92de13cb7043f9f21c8166"
+              target="_blank" rel="noreferrer"
+              className="flex items-center gap-1.5 text-xs bg-white/5 hover:bg-white/8 border border-white/8 text-white/40 rounded-lg px-3 py-1.5 transition-colors"
+            >
+              <ExternalLink className="w-3 h-3" /> View old YBTCToken
+            </a>
+          </div>
+        </Card>
+
         {/* ── Contract addresses */}
         <Card>
           <CardTitle className="mb-3">Deployed Contracts (Sepolia)</CardTitle>
           <div className="space-y-2 text-sm">
             {[
-              { label: "MockPragmaOracle",  addr: MOCK_ORACLE_ADDRESS },
               { label: "BTCSecurityRouter", addr: CONTRACTS.BTCSecurityRouter },
               { label: "BTCVault",          addr: CONTRACTS.BTCVault },
               { label: "MockWBTC",          addr: CONTRACTS.MockWBTC },
