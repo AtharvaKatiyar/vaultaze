@@ -480,7 +480,12 @@ mod BTCSecurityRouter {
         }
 
         fn get_max_leverage(self: @ContractState) -> u128 {
-            let health = self.get_btc_health();
+            let raw_health = self.get_btc_health();
+            
+            // Cap at 200 (2.0x backing ratio) to prevent u128 overflow when
+            // btc_exposure=0 causes get_btc_health() to return u128::MAX.
+            // Any health above 200 maps to the same max leverage tier anyway.
+            let health: u128 = if raw_health > 200 { 200 } else { raw_health };
             
             // Piecewise function based on health
             if health < 100 {
@@ -841,6 +846,23 @@ mod BTCSecurityRouter {
             self.emit(PriceRefreshed {
                 old_price,
                 new_price: response.price,
+                timestamp: now,
+            });
+        }
+
+        /// Admin override: set BTC/USD price directly (8 dec, e.g. $95k = 9_500_000_000_000).
+        /// Callable by owner only. Useful on testnets where Pragma data is stale.
+        /// The price is treated as freshly updated (timestamp = now).
+        fn admin_set_btc_price(ref self: ContractState, price: u128) {
+            self._only_owner_or_role(ROLE_ADMIN);
+            assert(price > 0, 'Price must be > 0');
+            let now = get_block_timestamp();
+            let old_price = self.btc_usd_price.read();
+            self.btc_usd_price.write(price);
+            self.price_last_updated.write(now);
+            self.emit(PriceRefreshed {
+                old_price,
+                new_price: price,
                 timestamp: now,
             });
         }

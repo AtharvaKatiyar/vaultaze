@@ -37,8 +37,13 @@ export function pragmaToUSD(price: bigint): number {
 // ─── Share price ─────────────────────────────────────────────────────────────
 
 /** Share price (SCALE=1_000_000) → display string like "1.0234" */
-export function formatSharePrice(sharePrice: bigint): string {
-  const n = Number(sharePrice) / Number(SCALE);
+export function formatSharePrice(sharePrice: bigint | number | undefined): string {
+  const raw = sharePrice == null ? 0n : typeof sharePrice === "number" ? BigInt(Math.floor(sharePrice)) : sharePrice;
+  // 0 is returned by the contract when total_supply=0 (fresh vault).
+  // The vault invariant guarantees share_price ≥ 1.0 once supply > 0, and
+  // defaults to SCALE (1.0) for the very first deposit.  Never show "0.000000".
+  if (raw === 0n) return "1.000000";
+  const n = Number(raw) / Number(SCALE);
   return n.toFixed(6);
 }
 

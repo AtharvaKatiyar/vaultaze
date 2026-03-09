@@ -1,6 +1,6 @@
 "use client";
 
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { useAccount, useSendTransaction } from "@starknet-react/core";
 import { AppLayout } from "@/components/layout/AppLayout";
 import { Card, CardTitle } from "@/components/ui/Card";
@@ -8,8 +8,7 @@ import { Button } from "@/components/ui/Button";
 import { LeverageSlider } from "@/components/leverage/LeverageSlider";
 import { HealthBadge } from "@/components/system/HealthBadge";
 import { useSystemMetrics } from "@/lib/hooks/useRouterData";
-import { useUserPosition, useRecommendedLeverage } from "@/lib/hooks/useUserPosition";
-import { useYBTCBalance } from "@/lib/hooks/useUserPosition";
+import { useUserPosition, useRecommendedLeverage, useYBTCBalance, useUserDashboard } from "@/lib/hooks/useUserPosition";
 import { formatLeverage, formatUSD, pragmaToUSD, formatBTC } from "@/lib/utils/format";
 import { CONTRACTS } from "@/lib/contracts/addresses";
 import { TxState } from "@/types";
@@ -29,14 +28,29 @@ export default function LeveragePage() {
   const { data: ybtcBal }      = useYBTCBalance();
   const { sendAsync }          = useSendTransaction({});
 
-  const currentLeverage  = position ? Number((position as any)[2] ?? 100) : 100;
-  const maxLeverage      = metrics?.maxLeverage ?? 200;
+  const { data: dash }        = useUserDashboard();
+
+  // Prefer dashboard data (authoritative) over raw position tuple
+  const currentLeverage  = dash ? dash.currentLeverage : (position ? Number((position as any)[2] ?? 100) : 100);
+  const debtUSD          = dash ? Number(dash.userDebtUsd) / 1e8 : 0;
+  // Ghost leverage: router stored leverage but oracle was 0 → no debt borrowed
+  const ghostLeverage    = currentLeverage > 100 && debtUSD === 0;
+  // Use || so that a maxLeverage of 0 (not yet set on-chain) also falls back to 200
+  const maxLeverage      = metrics?.maxLeverage || 200;
   const recLev_          = recLeverage ? Number(recLeverage.toString()) : 100;
-  const btcPrice         = metrics ? pragmaToUSD(BigInt(metrics.btcUsdPrice)) : 0;
+  const btcPrice         = metrics ? pragmaToUSD(BigInt(metrics.btcUsdPrice)) : 95_000;
   const ybtcBal_         = ybtcBal ? BigInt(ybtcBal.toString()) : 0n;
 
-  const [targetLeverage, setTargetLeverage] = useState(currentLeverage);
+  const [targetLeverage, setTargetLeverage] = useState(100);
   const [tx, setTx] = useState<TxState>({ status: "idle" });
+
+  // Sync slider to actual on-chain position leverage once it loads
+  useEffect(() => {
+    if (position) {
+      const lev = Number((position as any)[2] ?? 100);
+      setTargetLeverage(lev > 0 ? lev : 100);
+    }
+  }, [position]);
 
   const sharePrice  = metrics ? Number(metrics.sharePrice) / 1_000_000 : 1;
   const positionBTC = (Number(ybtcBal_) / 1e8) * sharePrice;
@@ -114,6 +128,27 @@ export default function LeveragePage() {
           </Card>
         </div>
 
+        {/* Ghost leverage banner — leverage recorded but oracle was 0 at apply time */}
+        {ghostLeverage && (
+          <motion.div initial={{ opacity: 0, y: 8 }} animate={{ opacity: 1, y: 0 }}>
+            <Card className="border-yellow-500/20 bg-yellow-500/5">
+              <div className="flex items-start gap-3">
+                <AlertTriangle className="w-4 h-4 text-yellow-400 mt-0.5 shrink-0" />
+                <div>
+                  <p className="text-sm font-semibold text-yellow-300">
+                    Leverage not funded — re-apply required
+                  </p>
+                  <p className="text-xs text-white/50 mt-1">
+                    Your leverage was recorded as {formatLeverage(currentLeverage)} but the BTC oracle
+                    was unavailable at that moment, so no stablecoins were borrowed. Re-apply your
+                    target leverage below to activate the full position.
+                  </p>
+                </div>
+              </div>
+            </Card>
+          </motion.div>
+        )}
+
         {/* Recommended */}
         {recLev_ > 0 && recLev_ !== currentLeverage && (
           <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }}>
@@ -157,6 +192,14 @@ export default function LeveragePage() {
                 }
               </span>
             </div>
+            {positionBTC > 0 && (
+              <div className="flex justify-between">
+                <span className="text-sm text-white/50">USD Exposure</span>
+                <span className="text-sm text-white font-mono">
+                  {formatUSD((positionBTC * (targetLeverage / 100)) * btcPrice)}
+                </span>
+              </div>
+            )}
             <div className="flex justify-between">
               <span className="text-sm text-white/50">Effective APY</span>
               <span className="text-sm text-emerald-400 font-semibold">{effectiveAPY}%</span>
@@ -235,7 +278,7 @@ export default function LeveragePage() {
           <div className="flex gap-3">
             <Info className="w-4 h-4 text-white/30 shrink-0 mt-0.5" />
             <div className="space-y-1 text-xs text-white/40">
-              <p>Maximum leverage increase per transaction: 0.30x (router enforced).</p>
+              <p>Maximum leverage increase per transaction: 1.00x (router enforced).</p>
               <p>Leverage is adjusted by borrowing stablecoins against your BTC collateral and deploying them to yield strategies.</p>
               <p>The router may reduce max leverage dynamically based on BTC volatility and system health.</p>
             </div>

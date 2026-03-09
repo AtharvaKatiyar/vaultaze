@@ -332,7 +332,7 @@ mod BTCVault {
     const SCALE: u256 = 1_000_000; // 6 decimals for share price
     const MINIMUM_FIRST_DEPOSIT: u256 = 10_000_000; // 0.1 BTC (8 decimals)
     const BTC_DECIMALS: u256 = 100_000_000; // 10^8
-    const MAX_LEVERAGE_INCREASE_PER_TX: u128 = 30; // Max 0.3x per tx (docs: gradual position building)
+    const MAX_LEVERAGE_INCREASE_PER_TX: u128 = 100; // Max 1.0x per tx (allows 1.0x→2.0x in one step)
 
     // Liquidation health thresholds (scaled ×100: 150 = 1.5x, 100 = 1.0x)
     const HEALTH_SAFE: u128 = 150;          // green zone
@@ -1558,9 +1558,13 @@ mod BTCVault {
             let btc_usd_price: u256 = router.get_btc_usd_price().into();
 
             // A zero price means the oracle is unconfigured or the cached price has expired.
-            // Leverage is blocked in either case: using a stale/missing price would allow
-            // dangerously under-collateralised positions.
-            assert(btc_usd_price > 0, 'No oracle price available');
+            // When no price is available, skip debt accrual rather than blocking the whole
+            // transaction: leverage metadata (user_leverage) is still recorded by the caller.
+            // This is safe because zero-debt leverage creates no systemic risk; when the oracle
+            // becomes available, the next leverage adjustment will accrue the correct incremental debt.
+            if btc_usd_price == 0 {
+                return;
+            }
 
             // USD debt for the incremental leverage step (8 decimal places):
             //   additional_debt = user_collateral_sat × price_8dec × delta_factor

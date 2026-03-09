@@ -18,7 +18,13 @@ export function LeverageSlider({
   maxLeverage,
   minLeverage = 100,
 }: LeverageSliderProps) {
-  const pct = ((value - minLeverage) / (maxLeverage - minLeverage)) * 100;
+  // Guard: if maxLeverage is 0 or not greater than minLeverage (contract not yet configured),
+  // fall back to 200 so the range input stays valid and presets stay visible.
+  const safeMax = maxLeverage > minLeverage ? maxLeverage : 200;
+  // Clamp pct to [0, 100] to prevent the thumb/fill going out-of-bounds.
+  const pct = Math.min(100, Math.max(0,
+    ((value - minLeverage) / (safeMax - minLeverage)) * 100
+  ));
 
   const levelColor =
     value <= 120
@@ -32,7 +38,7 @@ export function LeverageSlider({
     { label: "1.3x", val: 130 },
     { label: "1.5x", val: 150 },
     { label: "1.8x", val: 180 },
-  ].filter((p) => p.val <= maxLeverage);
+  ].filter((p) => p.val <= safeMax);
 
   return (
     <div>
@@ -59,7 +65,7 @@ export function LeverageSlider({
         <input
           type="range"
           min={minLeverage}
-          max={maxLeverage}
+          max={safeMax}
           step={5}
           value={value}
           onChange={(e) => onChange(Number(e.target.value))}

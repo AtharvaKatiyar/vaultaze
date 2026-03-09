@@ -3,15 +3,15 @@
 // ─────────────────────────────────────────
 
 export const CONTRACTS = {
-  BTCVault:          "0x04f3f2276f3c8e1d20296c0cf95329211fd22caa58898caf298c79160c281cdc",
-  BTCSecurityRouter: "0x079c852ec6c79d011a42eba2b0de16f13b9e35bdc42facf073ea2f7ffc579fc0",
+  BTCVault:          "0x06e3335034d25a8de764c0415fc0a6181c6878ee46b2817aec74a9fc1bcb4166",
+  BTCSecurityRouter: "0x06e077f2b7e5de828c8f43939fddea20937ba01eb95a066ca90c992a094ef8a5",
   YBTCToken:         "0x03100f429e329e8db8a21d603222459c29326c808a6e4c3ec1dd9003e6854b8a",
   MockWBTC:          "0x0129f01b63b9eb403e07c9da8e69e2bed648a5fbc81fddb0b27768ee323bf446",
 } as const;
 
 export const EXPLORERS = {
-  BTCVault:          "https://sepolia.voyager.online/contract/0x04f3f2276f3c8e1d20296c0cf95329211fd22caa58898caf298c79160c281cdc",
-  BTCSecurityRouter: "https://sepolia.voyager.online/contract/0x079c852ec6c79d011a42eba2b0de16f13b9e35bdc42facf073ea2f7ffc579fc0",
+  BTCVault:          "https://sepolia.voyager.online/contract/0x06e3335034d25a8de764c0415fc0a6181c6878ee46b2817aec74a9fc1bcb4166",
+  BTCSecurityRouter: "https://sepolia.voyager.online/contract/0x06e077f2b7e5de828c8f43939fddea20937ba01eb95a066ca90c992a094ef8a5",
   YBTCToken:         "https://sepolia.voyager.online/contract/0x03100f429e329e8db8a21d603222459c29326c808a6e4c3ec1dd9003e6854b8a",
   MockWBTC:          "https://sepolia.voyager.online/contract/0x0129f01b63b9eb403e07c9da8e69e2bed648a5fbc81fddb0b27768ee323bf446",
 } as const;

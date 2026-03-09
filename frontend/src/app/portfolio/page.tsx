@@ -5,15 +5,15 @@ import { PositionCard } from "@/components/portfolio/PositionCard";
 import { Card, CardTitle } from "@/components/ui/Card";
 import { useAccount } from "@starknet-react/core";
 import {
-  useWBTCBalance, useYBTCBalance, useUserPosition,
-  useUserHealth, useUserLiquidationPrice, useUserClaimableYield,
+  useWBTCBalance, useYBTCBalance,
+  useUserClaimableYield, useUserDashboard,
 } from "@/lib/hooks/useUserPosition";
 import { useSystemMetrics } from "@/lib/hooks/useRouterData";
-import { formatBTC, formatUSD, pragmaToUSD, formatSharePrice, bpsToPercent } from "@/lib/utils/format";
+import { formatBTC, formatUSD, pragmaToUSD, formatSharePrice, bpsToPercent, healthToStatus } from "@/lib/utils/format";
 import { EXPLORERS, CONTRACTS } from "@/lib/contracts/addresses";
 import {
   ExternalLink, ArrowUpFromLine, ArrowDownToLine, ShieldAlert,
-  Bitcoin, Coins, Zap, TrendingUp, AlertTriangle, CheckCircle2,
+  Bitcoin, Coins, Zap, TrendingUp, AlertTriangle, CheckCircle2, RefreshCw,
 } from "lucide-react";
 import Link from "next/link";
 import { Button } from "@/components/ui/Button";
@@ -29,37 +29,47 @@ const FADE_UP = (delay = 0) => ({
 
 export default function PortfolioPage() {
   useAuthGuard();
-  const { address }           = useAccount();
-  const { data: wbtcBal }     = useWBTCBalance();
-  const { data: ybtcBal }     = useYBTCBalance();
-  const { data: metrics }     = useSystemMetrics();
-  const { data: position }    = useUserPosition();
-  const { data: health }      = useUserHealth();
-  const { data: liquidPrice } = useUserLiquidationPrice();
-  const { data: claimable }   = useUserClaimableYield();
+  const { address }             = useAccount();
+  const { data: wbtcBal }       = useWBTCBalance();
+  const { data: ybtcBal }       = useYBTCBalance();
+  const { data: metrics }       = useSystemMetrics();
+  const { data: dash, loading: dashLoading } = useUserDashboard();
+  const { data: claimable }     = useUserClaimableYield();
 
-  const btcPrice      = metrics ? pragmaToUSD(BigInt(metrics.btcUsdPrice)) : 0;
-  const wbtcBal_      = wbtcBal  ? BigInt(wbtcBal.toString())  : 0n;
-  const ybtcBal_      = ybtcBal  ? BigInt(ybtcBal.toString())  : 0n;
-  const sharePrice    = metrics  ? Number(metrics.sharePrice) / 1_000_000 : 1;
+  // ── Prices / balances ────────────────────────────────────────────────────
+  const btcPrice   = metrics ? pragmaToUSD(BigInt(metrics.btcUsdPrice)) : 95_000;
+  const wbtcBal_   = wbtcBal ? BigInt(wbtcBal.toString()) : 0n;
+  const ybtcBal_   = ybtcBal ? BigInt(ybtcBal.toString()) : 0n;
 
-  // Position tuple: [collateral_wbtc, debt_stables, leverage_bps]
-  const collateral_   = position ? BigInt((position as any)[0] ?? 0) : 0n;
-  const debt_         = position ? BigInt((position as any)[1] ?? 0) : 0n;
-  const leverage_     = position ? Number((position as any)[2] ?? 100) : 100;
+  // Share price from dashboard (single call). Fall back to metrics.sharePrice
+  // (which is vault-level). 0 → 1.0 for fresh vault (handled in formatSharePrice).
+  const sharePriceBigInt = dash?.sharePrice ?? metrics?.sharePrice ?? 0n;
+  const sharePrice = Number(sharePriceBigInt) / 1_000_000 || 1;
 
-  const healthVal     = health      ? Number(health.toString())      : 0;
-  const liqPrice_     = liquidPrice ? Number(liquidPrice.toString()) : 0;
-  const claimable_    = claimable   ? BigInt(claimable.toString())   : 0n;
+  // ── User position from dashboard (correct data) ──────────────────────────
+  // get_user_position tuple[0] = ybtc_balance, tuple[1] = BTC value (NOT debt).
+  // Real per-user USD debt only comes from get_user_dashboard.user_debt_usd.
+  const leverage_     = dash ? dash.currentLeverage : 100;
 
-  // Derived values
-  const ybtcInBTC     = (Number(ybtcBal_) / 1e8) * sharePrice;
-  const ybtcUSD       = ybtcInBTC * btcPrice;
-  const wbtcUSD       = (Number(wbtcBal_) / 1e8) * btcPrice;
-  const collateralUSD = (Number(collateral_) / 1e8) * btcPrice;
-  const debtUSD       = Number(debt_) / 1e6;   // stablecoins = 6 decimals
+  // user_debt_usd is stored in Pragma 8-decimal format ($95k = 9_500_000_000_000).
+  // Divide by 1e8 to get human-readable USD.
+  const debtPragma_   = dash ? dash.userDebtUsd : 0n;
+  const debtUSD       = Number(debtPragma_) / 1e8;
+
+  // Collateral = BTC value of user's yBTC shares (from dashboard btc_value_sat)
+  const collateralSat = dash ? dash.btcValueSat : 0n;
+  const collateralBTC = Number(collateralSat) / 1e8;
+  const collateralUSD = collateralBTC * btcPrice;
+
+  const healthVal     = dash ? dash.healthFactor : 999999;
+  const liqPriceUSD   = dash ? dash.liquidationPriceUsd / 1e8 : 0;
+  const claimable_    = claimable ? BigInt(claimable.toString()) : 0n;
   const claimableUSD  = (Number(claimable_) / 1e8) * btcPrice;
-  const liqPriceUSD   = liqPrice_ > 0 ? liqPrice_ / 1e8 : 0;
+
+  // ── Derived display values ────────────────────────────────────────────────
+  const ybtcInBTC  = (Number(ybtcBal_) / 1e8) * sharePrice;
+  const ybtcUSD    = ybtcInBTC * btcPrice;
+  const wbtcUSD    = (Number(wbtcBal_) / 1e8) * btcPrice;
 
   const isLeveraged   = leverage_ > 100;
   const ltvPct        = collateralUSD > 0 ? ((debtUSD / collateralUSD) * 100).toFixed(1) : "0";
@@ -67,9 +77,32 @@ export default function PortfolioPage() {
     ? (((btcPrice - liqPriceUSD) / btcPrice) * 100).toFixed(1)
     : null;
 
-  // Share price yield: how much BTC value grew beyond 1:1
-  const yieldGainBTC  = ybtcBal_ > 0n ? (Number(ybtcBal_) / 1e8) * (sharePrice - 1) : 0;
-  const yieldGainUSD  = yieldGainBTC * btcPrice;
+  // ── Unrealized P&L for leveraged positions ────────────────────────────────
+  // Entry price = debtUSD / extraBTC  where  extraBTC = collateral × (lev − 1)
+  const leverageFactor   = leverage_ / 100;
+  const leveragedBTC     = collateralBTC * leverageFactor;         // total exposure
+  const extraBTC         = collateralBTC * (leverageFactor - 1);   // borrowed BTC amount
+  const entryPriceEst    = (isLeveraged && debtUSD > 0 && extraBTC > 0)
+    ? debtUSD / extraBTC
+    : btcPrice;
+  const unrealizedPnlUSD = isLeveraged && btcPrice > 0
+    ? (btcPrice - entryPriceEst) * extraBTC
+    : 0;
+  const unrealizedPnlPct = isLeveraged && entryPriceEst > 0
+    ? ((btcPrice - entryPriceEst) / entryPriceEst) * leverageFactor * 100
+    : 0;
+
+  // Share price yield: how much extra BTC accrued per share above 1:1
+  const yieldGainBTC = ybtcBal_ > 0n ? (Number(ybtcBal_) / 1e8) * (sharePrice - 1) : 0;
+  const yieldGainUSD = yieldGainBTC * btcPrice;
+
+  // Vault APY from dashboard (has real deployed_capital ratio), fall back to metrics estimate
+  const displayApy   = (dash?.vaultApy ?? 0) > 0 ? (dash?.vaultApy ?? 0) : (metrics?.apy ?? 800);
+
+  // Detect the "ghost leverage" state: user applied leverage when oracle price was 0,
+  // so user_leverage was stored but no debt was recorded.
+  const ghostLeverage = isLeveraged && debtUSD === 0;
+
 
   return (
     <AppLayout>
@@ -130,16 +163,20 @@ export default function PortfolioPage() {
             <div className="bg-white/3 border border-white/6 rounded-xl p-4">
               <p className="text-[10px] text-white/40 uppercase tracking-wider mb-1.5">Share Price</p>
               <p className="text-lg font-bold font-mono text-white">
-                {formatSharePrice(metrics?.sharePrice ?? 1_000_000n)}
+                {formatSharePrice(sharePriceBigInt)}
               </p>
-              <p className="text-[10px] text-white/30 mt-0.5">wBTC per yBTC</p>
+              <p className="text-[10px] text-white/30 mt-0.5">
+                {sharePrice > 1 ? <span className="text-emerald-400">+{((sharePrice - 1) * 100).toFixed(4)}%</span> : "wBTC per yBTC"}
+              </p>
             </div>
             <div className="bg-white/3 border border-white/6 rounded-xl p-4">
               <p className="text-[10px] text-white/40 uppercase tracking-wider mb-1.5">Est. APY</p>
               <p className="text-lg font-bold text-emerald-400">
-                {metrics ? bpsToPercent(metrics.apy) : "—"}
+                {bpsToPercent(displayApy)}
               </p>
-              <p className="text-[10px] text-white/30 mt-0.5">Yield strategy</p>
+              <p className="text-[10px] text-white/30 mt-0.5">
+                {(dash?.vaultApy ?? 0) > 0 ? "live · strategy" : "est. · no strategy yet"}
+              </p>
             </div>
           </div>
         </motion.div>
@@ -154,10 +191,10 @@ export default function PortfolioPage() {
             </CardTitle>
             <div className="space-y-3">
               <div className="flex justify-between items-end">
-                <p className="text-xs text-white/40">wBTC Collateral Locked</p>
+                <p className="text-xs text-white/40">BTC Collateral (via yBTC)</p>
                 <div className="text-right">
                   <p className="text-base font-bold font-mono text-white">
-                    {collateral_ > 0n ? formatBTC(collateral_) : "—"} wBTC
+                    {collateralBTC > 0 ? `${collateralBTC.toFixed(8)} BTC` : "—"}
                   </p>
                   {collateralUSD > 0 && (
                     <p className="text-[10px] text-white/30">{formatUSD(collateralUSD)}</p>
@@ -198,7 +235,25 @@ export default function PortfolioPage() {
             <CardTitle className="flex items-center gap-1.5 mb-4">
               <Coins className="w-3.5 h-3.5 text-yellow-400" /> Borrowed Capital
             </CardTitle>
-            {debt_ > 0n ? (
+
+            {/* Ghost leverage banner — leverage recorded but oracle was 0 at apply time */}
+            {ghostLeverage && (
+              <div className="flex items-start gap-3 bg-yellow-500/10 border border-yellow-500/20 rounded-xl px-4 py-3 mb-4">
+                <AlertTriangle className="w-4 h-4 text-yellow-400 shrink-0 mt-0.5" />
+                <div>
+                  <p className="text-sm font-semibold text-yellow-400">Leverage recorded but not funded</p>
+                  <p className="text-xs text-white/50 mt-0.5">
+                    The BTC oracle was unavailable when you applied leverage, so no stablecoins were
+                    borrowed. Re-apply your leverage now that the price feed is active.
+                  </p>
+                  <Link href="/leverage">
+                    <Button size="sm" variant="secondary" className="mt-2 text-xs">Re-apply Leverage →</Button>
+                  </Link>
+                </div>
+              </div>
+            )}
+
+            {debtUSD > 0 ? (
               <div className="space-y-3">
                 <div className="flex justify-between items-end">
                   <p className="text-xs text-white/40">Stablecoins Borrowed</p>
@@ -215,6 +270,37 @@ export default function PortfolioPage() {
                   <p className="text-xs text-white/40">Active Leverage</p>
                   <p className="text-sm font-bold text-yellow-400">{(leverage_ / 100).toFixed(2)}×</p>
                 </div>
+                <div className="flex justify-between items-center">
+                  <p className="text-xs text-white/40">BTC Exposure</p>
+                  <p className="text-sm font-semibold text-white">
+                    {leveragedBTC > 0 ? `${leveragedBTC.toFixed(6)} BTC` : "—"}
+                  </p>
+                </div>
+                {isLeveraged && (
+                  <div className="flex justify-between items-center">
+                    <p className="text-xs text-white/40">Entry Price (est.)</p>
+                    <p className="text-sm font-mono text-white/70">{entryPriceEst > 0 ? formatUSD(entryPriceEst) : "—"}</p>
+                  </div>
+                )}
+                <div className={`flex justify-between items-center pt-2 border-t border-white/6 ${
+                  unrealizedPnlUSD > 0 ? "border-emerald-500/20" : unrealizedPnlUSD < 0 ? "border-red-500/20" : ""
+                }`}>
+                  <p className="text-xs text-white/40">Unrealised P&amp;L</p>
+                  <div className="text-right">
+                    <p className={`text-sm font-bold ${
+                      unrealizedPnlUSD > 0 ? "text-emerald-400"
+                      : unrealizedPnlUSD < 0 ? "text-red-400"
+                      : "text-white/50"
+                    }`}>
+                      {unrealizedPnlUSD > 0 ? "+" : ""}
+                      {formatUSD(unrealizedPnlUSD)}
+                    </p>
+                    <p className="text-[10px] text-white/30">
+                      {unrealizedPnlPct > 0 ? "+" : ""}
+                      {unrealizedPnlPct.toFixed(2)}% leveraged
+                    </p>
+                  </div>
+                </div>
                 <div className="pt-2 border-t border-white/6 text-[11px] text-white/30 space-y-1">
                   <p className="flex items-center gap-1.5">
                     <Zap className="w-3 h-3 text-yellow-400/60" />
@@ -226,7 +312,7 @@ export default function PortfolioPage() {
                   </p>
                 </div>
               </div>
-            ) : (
+            ) : !ghostLeverage ? (
               <div className="flex flex-col items-center justify-center h-24 gap-2 text-center">
                 <CheckCircle2 className="w-6 h-6 text-emerald-400/50" />
                 <p className="text-xs text-white/40">No leverage active.</p>
@@ -235,7 +321,7 @@ export default function PortfolioPage() {
                   <Button size="sm" variant="secondary" className="mt-1 text-xs">Set Leverage</Button>
                 </Link>
               </div>
-            )}
+            ) : null}
           </Card>
         </motion.div>
 
@@ -262,7 +348,7 @@ export default function PortfolioPage() {
                 <div className="pt-2 border-t border-white/6 flex justify-between">
                   <span className="text-[10px] text-white/30">Your earnings</span>
                   <span className="text-[11px] text-emerald-400 font-medium">
-                    {metrics ? `${bpsToPercent(metrics.apy)} APY` : "—"}
+                    {`${bpsToPercent(displayApy)} APY`}
                     {yieldGainBTC > 0 && ` · +${yieldGainBTC.toFixed(6)} wBTC`}
                   </span>
                 </div>

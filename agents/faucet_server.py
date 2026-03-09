@@ -51,7 +51,7 @@ log = get_logger(__name__)
 # ── Deployed contract addresses (Sepolia) ─────────────────────────────────────
 DEPLOYER_ADDRESS          = "0x01390501de9c3e2c1f06d97fd317c1cd002d95250ab6f58bf1f272bdb9f8ed18"
 MOCK_WBTC_ADDRESS         = "0x0129f01b63b9eb403e07c9da8e69e2bed648a5fbc81fddb0b27768ee323bf446"
-BTCSECURITY_ROUTER_ADDR   = "0x079c852ec6c79d011a42eba2b0de16f13b9e35bdc42facf073ea2f7ffc579fc0"  # redeployed 24 Feb 2026
+BTCSECURITY_ROUTER_ADDR   = "0x06e077f2b7e5de828c8f43939fddea20937ba01eb95a066ca90c992a094ef8a5"
 # NOTE: MOCK_ORACLE_ADDRESS removed — router now uses live Pragma oracle.
 # refresh_btc_price() is not callable on Sepolia (Pragma feed is stale on testnet).
 

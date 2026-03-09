@@ -261,6 +261,10 @@ pub trait IBTCSecurityRouter<TContractState> {
     /// Returns true when a price has been fetched AND is within MAX_PRICE_AGE seconds.
     fn is_price_fresh(self: @TContractState) -> bool;
     fn refresh_btc_price(ref self: TContractState);
+    /// Admin override: set BTC/USD price directly without calling Pragma.
+    /// Callable by owner only. Useful on testnets where Pragma data is stale.
+    /// Price uses 8 decimal places (Pragma convention): $95,000 = 9_500_000_000_000.
+    fn admin_set_btc_price(ref self: TContractState, price: u128);
 
     // Timelocked admin functions
     fn set_oracle_address(ref self: TContractState, op_id: felt252, oracle: ContractAddress);

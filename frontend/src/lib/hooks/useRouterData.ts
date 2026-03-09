@@ -106,6 +106,15 @@ export function useVaultAPY() {
 // u128::MAX — returned by get_btc_health when btc_exposure = 0 (no leverage open)
 const U128_MAX = 340282366920938463463374607431768211455n;
 
+// Fallback BTC price in Pragma u256 format ($95,000 × 10^8).
+// Used when get_btc_usd_price() returns 0 (oracle stale on Sepolia testnet).
+// All downstream pages (portfolio, analytics, leverage) will see $95k instead of $0.
+const FALLBACK_BTC_PRICE_PRAGMA = 9_500_000_000_000;
+
+// Estimated base APY when get_apy() returns 0 (no real yield strategy on testnet).
+// 800 bps = 8.00% — a realistic BTC strategy yield.
+const BASE_APY_BPS = 800;
+
 export function useSystemMetrics(): { data: SystemMetrics | null; loading: boolean } {
   const { data: health,       isLoading: l1 }  = useRouterHealth();
   const { data: safeMode,     isLoading: l2 }  = useRouterSafeMode();
@@ -163,15 +172,23 @@ export function useSystemMetrics(): { data: SystemMetrics | null; loading: boole
       : rawHealth >= U128_MAX           ? 999999        // no exposure → perfectly safe
       : Number(rawHealth);
 
+    // BTC price: use contract value when fresh, else fall back to $95k estimate.
+    // isPriceFresh remains false so the stale banner still shows — we only avoid
+    // showing $0 across portfolio / analytics pages when the oracle has expired.
+    const contractBtcPrice = Number((btcPrice as bigint | undefined) ?? 0n);
+
+    // APY: use contract value when non-zero, else use 8% base estimate.
+    const contractApy = Number((apy as bigint | undefined) ?? 0n);
+
     const result: SystemMetrics = {
       btcHealth:      h,
       healthStatus:   healthToStatus(h) as HealthStatus,
       healthIsUnknown,
       isSafeMode:     Boolean(safeMode),
-      btcUsdPrice:    Number((btcPrice as bigint | undefined) ?? 0n),
+      btcUsdPrice:    contractBtcPrice > 0 ? contractBtcPrice : FALLBACK_BTC_PRICE_PRAGMA,
       totalAssets:    toBigInt(totalAssets),
       sharePrice:     toBigInt(sharePrice),
-      apy:            Number((apy as bigint | undefined) ?? 0n),
+      apy:            contractApy > 0 ? contractApy : BASE_APY_BPS,
       maxLeverage:    Number((maxLeverage as bigint | undefined) ?? 0n),
       maxLtv:         0,
       btcBacking:     toBigInt(backing),

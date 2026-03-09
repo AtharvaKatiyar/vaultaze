@@ -119,8 +119,8 @@ export default function DashboardPage() {
             <CardTitle className="flex items-center gap-1.5 mb-4"><Lock className="w-3.5 h-3.5" /> Deployed Contracts (Sepolia)</CardTitle>
             <div className="space-y-2">
               {[
-                { name: "BTCVault", addr: "0x04f3…cdc", href: EXPLORERS.BTCVault },
-                { name: "BTCSecurityRouter", addr: "0x079c…fc0", href: EXPLORERS.BTCSecurityRouter },
+                { name: "BTCVault", addr: "0x6e33…166", href: EXPLORERS.BTCVault },
+                { name: "BTCSecurityRouter", addr: "0x6e07…8a5", href: EXPLORERS.BTCSecurityRouter },
                 { name: "YBTCToken", addr: "0x0310…b8a", href: EXPLORERS.YBTCToken },
                 { name: "Mock wBTC", addr: "0x0129…b446", href: EXPLORERS.MockWBTC },
               ].map(({ name, addr, href }) => (
