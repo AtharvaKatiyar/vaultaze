@@ -264,7 +264,7 @@ class StarknetClient:
         Returns int(2**128 - 1) when the user has no leveraged debt.
         """
         result = await self._view(self._vault, "get_user_health", [int(user, 16)])
-        return int(result[0])
+        return self._to_int(result[0])
 
     async def get_liquidation_price(self, user: str) -> int:
         """
@@ -272,7 +272,7 @@ class StarknetClient:
         Returns 0 when the user has no debt.
         """
         result = await self._view(self._vault, "get_liquidation_price", [int(user, 16)])
-        return int(result[0])
+        return self._to_int(result[0])
 
     async def is_liquidatable(self, user: str) -> bool:
         """Return True when the user's health factor is ≤ 100 (1.00x)."""
@@ -283,14 +283,20 @@ class StarknetClient:
         """
         Return (ybtc_balance, btc_value_sat, leverage×100).
         leverage = 0 means no leveraged position.
+
+        Note: Cairo returns (u256, u256, u128) as a single outer element when
+        starknet-py deserializes tuple return types, so we unpack result[0]
+        as the inner 3-tuple, not result[0..2] directly.
         """
         result = await self._view(self._vault, "get_user_position", [int(user, 16)])
-        return int(result[0]), int(result[1]), int(result[2])
+        # result = [(ybtc_balance, btc_value, leverage)]  — one outer element
+        inner = result[0]
+        return self._to_int(inner[0]), self._to_int(inner[1]), self._to_int(inner[2])
 
     async def get_total_assets(self) -> int:
         """Return total BTC assets in the vault (satoshis)."""
         result = await self._view(self._vault, "get_total_assets")
-        return int(result[0])
+        return self._to_int(result[0])
 
     async def get_apy(self) -> int:
         """Return the vault's estimated APY in basis points (1000 = 10%)."""
@@ -333,6 +339,18 @@ class StarknetClient:
         return await self._invoke(self._vault, "trigger_yield_accrual")
 
     # ── Internal helpers ───────────────────────────────────────────────────────
+
+    @staticmethod
+    def _to_int(val: Any) -> int:
+        """
+        Convert a starknet-py call result field to a Python int.
+        starknet-py may return u256 values as a 2-element tuple (low, high)
+        rather than a single int, depending on ABI deserialization.
+        """
+        if isinstance(val, (tuple, list)) and len(val) == 2:
+            low, high = val
+            return int(low) + (int(high) << 128)
+        return int(val)
 
     def _load_abi(self, contract_name: str) -> list[dict]:
         """

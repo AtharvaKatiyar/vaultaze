@@ -155,10 +155,20 @@ class PriceFeed:
 
         σ_annual = σ_log_returns × √(periods_per_year)
 
-        Returns 0.0 when there are fewer than 3 samples.
+        Returns 0.0 when there are fewer than 5 samples OR the history spans
+        less than 2 minutes (avoids false spikes at startup when samples are
+        taken milliseconds apart and annualisation explodes).
         """
         samples = self._valid_samples()
-        if len(samples) < 3:
+        if len(samples) < 5:
+            return 0.0
+        # Require at least 1 hour of spread before returning non-zero volatility.
+        # Annualising a 2-minute window produces extremely noisy results
+        # (even a 0.1% normal price tick becomes 50%+ annualised volatility).
+        # 3600 s ensures the safe-mode trigger only fires after the agent has
+        # observed enough history to make the σ estimate meaningful.
+        span_seconds = samples[-1].timestamp - samples[0].timestamp
+        if span_seconds < 3600:
             return 0.0
 
         prices = [s.price for s in samples]
