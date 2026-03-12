@@ -7,12 +7,12 @@ import { Card, CardTitle } from "@/components/ui/Card";
 import { Button } from "@/components/ui/Button";
 import { HealthBadge } from "@/components/system/HealthBadge";
 import { useSystemMetrics } from "@/lib/hooks/useRouterData";
-import { useWBTCBalance, useYBTCBalance, useUserPosition, useUserHealth } from "@/lib/hooks/useUserPosition";
-import { formatBTC, formatUSD, pragmaToUSD, bpsToPercent, formatLeverage } from "@/lib/utils/format";
+import { useWBTCBalance, useYBTCBalance, useUserPosition, useUserHealth, useUserDashboard, toBalance } from "@/lib/hooks/useUserPosition";
+import { formatBTC, formatUSD, pragmaToUSD, bpsToPercent, formatLeverage, formatSharePrice } from "@/lib/utils/format";
 import {
   ArrowRight, Bitcoin, TrendingUp, Zap, ExternalLink, Activity, Lock,
   CheckCircle2, Circle, Eye, RefreshCw, UserCheck, AlertTriangle,
-  ShieldAlert, Cpu
+  ShieldAlert, Cpu, Coins, Gift
 } from "lucide-react";
 import Link from "next/link";
 import { motion } from "framer-motion";
@@ -31,6 +31,7 @@ export default function DashboardPage() {
   const { data: ybtcBal }   = useYBTCBalance();
   const { data: position }  = useUserPosition();
   const { data: health }    = useUserHealth();
+  const { data: dash }      = useUserDashboard();
 
   const FALLBACK_BTC_PRICE = 95_000;
   const rawBtcPrice  = metrics ? pragmaToUSD(BigInt(metrics.btcUsdPrice)) : 0;
@@ -39,6 +40,17 @@ export default function DashboardPage() {
   const hasYBTC     = ybtcBal   ? BigInt(ybtcBal.toString())  > 0n : false;
   const hasLeverage = position  ? Number((position as any)[2] ?? 100) > 100 : false;
   const healthVal   = health    ? Number(health.toString()) : 0;
+
+  // Derived dashboard values
+  const yBal           = toBalance(ybtcBal);
+  const sharePriceRaw  = Number(dash?.sharePrice ?? metrics?.sharePrice ?? 1_000_000n);
+  const sharePriceRatio = sharePriceRaw > 0 ? sharePriceRaw / 1_000_000 : 1;
+  const vaultValueBTC  = (Number(yBal) / 1e8) * sharePriceRatio;
+  const vaultValueUSD  = vaultValueBTC * btcPrice;
+  const yieldGainBTC   = (Number(yBal) / 1e8) * (sharePriceRatio - 1);
+  const claimableYield = dash?.claimableYieldSat ?? 0n;
+  const leverage_      = dash?.currentLeverage ?? 100;
+  const isLeveraged    = leverage_ > 100;
 
   return (
     <AppLayout>
@@ -57,6 +69,75 @@ export default function DashboardPage() {
         </motion.div>
 
         <motion.div {...FADE_UP(0.05)}><MetricsRow /></motion.div>
+
+        {/* ─── Position Summary ─────────────────────────────────────── */}
+        {hasYBTC && (
+          <motion.div {...FADE_UP(0.08)}>
+            <Card glass className="border-emerald-500/20 bg-emerald-950/10">
+              <div className="flex flex-wrap items-center justify-between gap-4">
+                <div>
+                  <p className="text-xs text-emerald-400/60 uppercase tracking-wider mb-1">Your Vault Position</p>
+                  <div className="flex items-baseline gap-2">
+                    <span className="text-2xl font-bold text-white font-mono">{vaultValueBTC.toFixed(6)}</span>
+                    <span className="text-sm text-white/40">wBTC value</span>
+                    <span className="text-sm text-white/30">({formatUSD(vaultValueUSD)})</span>
+                  </div>
+                </div>
+                <div className="flex flex-wrap gap-3">
+                  {/* Share price gain */}
+                  {sharePriceRatio > 1 && (
+                    <div className="flex items-center gap-2 bg-emerald-500/10 border border-emerald-500/20 rounded-xl px-3 py-2">
+                      <TrendingUp className="w-3.5 h-3.5 text-emerald-400" />
+                      <div>
+                        <p className="text-[10px] text-emerald-400/70">Share price</p>
+                        <p className="text-sm font-mono font-semibold text-emerald-300">
+                          {formatSharePrice(dash?.sharePrice ?? metrics?.sharePrice)}
+                          <span className="ml-1 text-xs text-emerald-400">(+{((sharePriceRatio - 1) * 100).toFixed(4)}%)</span>
+                        </p>
+                      </div>
+                    </div>
+                  )}
+                  {/* Yield gained */}
+                  {yieldGainBTC > 0 && (
+                    <div className="flex items-center gap-2 bg-emerald-500/8 border border-emerald-500/15 rounded-xl px-3 py-2">
+                      <Coins className="w-3.5 h-3.5 text-emerald-400" />
+                      <div>
+                        <p className="text-[10px] text-emerald-400/70">Yield earned</p>
+                        <p className="text-sm font-mono font-semibold text-emerald-300">+{yieldGainBTC.toFixed(8)} BTC</p>
+                      </div>
+                    </div>
+                  )}
+                  {/* Claimable yield */}
+                  {claimableYield > 0n && (
+                    <Link href="/portfolio">
+                      <div className="flex items-center gap-2 bg-emerald-500/15 border border-emerald-400/30 rounded-xl px-3 py-2 cursor-pointer hover:bg-emerald-500/20 transition-colors">
+                        <Gift className="w-3.5 h-3.5 text-emerald-300" />
+                        <div>
+                          <p className="text-[10px] text-emerald-300/80">Claimable yield ↗</p>
+                          <p className="text-sm font-mono font-bold text-emerald-300">+{formatBTC(claimableYield)} wBTC</p>
+                        </div>
+                      </div>
+                    </Link>
+                  )}
+                  {/* Leverage */}
+                  <div className={`flex items-center gap-2 border rounded-xl px-3 py-2 ${
+                    isLeveraged
+                      ? "bg-yellow-500/10 border-yellow-500/20"
+                      : "bg-white/5 border-white/10"
+                  }`}>
+                    <Zap className={`w-3.5 h-3.5 ${isLeveraged ? "text-yellow-400" : "text-white/30"}`} />
+                    <div>
+                      <p className={`text-[10px] ${isLeveraged ? "text-yellow-400/70" : "text-white/30"}`}>Leverage</p>
+                      <p className={`text-sm font-semibold ${isLeveraged ? "text-yellow-300" : "text-white/30"}`}>
+                        {isLeveraged ? formatLeverage(leverage_) : "None"}
+                      </p>
+                    </div>
+                  </div>
+                </div>
+              </div>
+            </Card>
+          </motion.div>
+        )}
 
         <motion.div {...FADE_UP(0.1)} className="grid grid-cols-1 md:grid-cols-3 gap-4">
           <Link href="/vault">

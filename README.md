@@ -4,6 +4,7 @@
   <img src="https://img.shields.io/badge/Network-Starknet%20Sepolia-8b5cf6?style=flat-square" />
   <img src="https://img.shields.io/badge/Language-Cairo%201.0-orange?style=flat-square" />
   <img src="https://img.shields.io/badge/Frontend-Next.js%2016-black?style=flat-square" />
+  <img src="https://img.shields.io/badge/Agents-Railway-0B0D0E?style=flat-square" />
   <img src="https://img.shields.io/badge/Status-Testnet%20Live-22c55e?style=flat-square" />
 </p>
 
@@ -214,30 +215,66 @@ Agents are containerized (see `agents/Dockerfile`) and deployed to **Railway**.
 
 **Next.js 16** app connecting to Starknet Sepolia via `@starknet-react/core`.
 
+### User Flow
+Unauthenticated users land on the **Landing Page** (`/`). Connecting a wallet auto-navigates to the **Dashboard** (`/dashboard`). Disconnecting redirects back to the landing page.
+
 | Route | Description |
 |---|---|
-| `/` | Dashboard — system health, BTC price, TVL |
+| `/` | Landing page — hero, features, how-it-works, security overview |
+| `/dashboard` | System health, BTC price, TVL — requires wallet |
 | `/vault` | Deposit wBTC / withdraw to yBTC |
 | `/leverage` | Apply or remove leverage on BTC positions |
 | `/portfolio` | Personal positions, P&L, share price history |
 | `/analytics` | System-wide metrics and health factor chart |
-| `/faucet` | Testnet wBTC faucet |
+| `/faucet` | Testnet wBTC faucet (calls the Railway faucet API) |
 
 **Stack:** Next.js 16 · React 19 · TypeScript · Tailwind CSS v4 · `@starknet-react/core` v3 · `starknet.js` v6 · Recharts · Framer Motion · Zustand
+
+**Key components:** `SafeModeBanner` · `HealthBadge` · `MetricsRow` · `AppLayout` · `Sidebar`
+
+**Environment variable:**
+```
+NEXT_PUBLIC_FAUCET_API_URL=<Railway faucet URL>   # e.g. https://your-service.up.railway.app
+```
+
+---
+
+## Testnet Faucet Server
+
+The **wBTC faucet** is a FastAPI server (`agents/faucet_server.py`) that lets any Starknet Sepolia wallet request test wBTC — without needing the deployer key in the browser.
+
+On each request it executes a multicall:
+1. Refreshes the MockPragmaOracle price ($95,000)
+2. Syncs the BTCSecurityRouter price cache
+3. Mints Mock wBTC to the requesting wallet
+
+The server runs alongside the autonomous agents inside a single Docker container and is deployed to **Railway** (see `railway.toml`).
+
+| Config | Value |
+|---|---|
+| Default port | `8400` (or `$PORT` when on Railway) |
+| Rate limit | 5 wBTC per wallet per 24 hours |
+| Health endpoint | `GET /health` |
+
+Run locally:
+```bash
+cd agents
+uvicorn faucet_server:app --host 0.0.0.0 --port 8400 --reload
+```
 
 ---
 
 ## Deployed Contracts — Starknet Sepolia
 
-> Deployed: February 24, 2026
-
 | Contract | Address |
 |---|---|
-| **BTCVault** ⭐ | [`0x0047970c...`](https://sepolia.starkscan.co/contract/0x0047970cfbf8de94f268f2416c9e5cbaef520dae7b5eae0fd6476a41b7266f08) |
-| **BTCSecurityRouter** | [`0x014c306f...`](https://sepolia.starkscan.co/contract/0x014c306f04fd602c1a06f61367de622af2558972c7eead39600b5d99fd1e2639) |
-| **yBTC Token** | [`0x04ea131f...`](https://sepolia.starkscan.co/contract/0x04ea131f51c071ce677482a4eeb1f9ac31e9188b2a92de13cb7043f9f21c8166) |
-| **Mock wBTC** | [`0x0129f01b...`](https://sepolia.starkscan.co/contract/0x0129f01b63b9eb403e07c9da8e69e2bed648a5fbc81fddb0b27768ee323bf446) |
-| **MockPragmaOracle** | [`0x06d1c9aa...`](https://sepolia.starkscan.co/contract/0x06d1c9aa3cb65003c51a4b360c8ac3a23a9724530246031ba92ff0b2461f7e74) |
+| **BTCVault** ⭐ | [`0x06e33350...`](https://sepolia.voyager.online/contract/0x06e3335034d25a8de764c0415fc0a6181c6878ee46b2817aec74a9fc1bcb4166) |
+| **BTCSecurityRouter** | [`0x06e077f2...`](https://sepolia.voyager.online/contract/0x06e077f2b7e5de828c8f43939fddea20937ba01eb95a066ca90c992a094ef8a5) |
+| **yBTC Token** | [`0x03100f42...`](https://sepolia.voyager.online/contract/0x03100f429e329e8db8a21d603222459c29326c808a6e4c3ec1dd9003e6854b8a) |
+| **Mock wBTC** | [`0x0129f01b...`](https://sepolia.voyager.online/contract/0x0129f01b63b9eb403e07c9da8e69e2bed648a5fbc81fddb0b27768ee323bf446) |
+| **MockPragmaOracle** | [`0x06d1c9aa...`](https://sepolia.voyager.online/contract/0x06d1c9aa3cb65003c51a4b360c8ac3a23a9724530246031ba92ff0b2461f7e74) |
+
+> Explorer: [Voyager Sepolia](https://sepolia.voyager.online)
 
 ---
 
@@ -245,46 +282,62 @@ Agents are containerized (see `agents/Dockerfile`) and deployed to **Railway**.
 
 ```
 vaultaze/
-├── vault/                  # Cairo smart contracts (Scarb)
+├── vault/                        # Cairo smart contracts (Scarb)
 │   ├── src/
-│   │   ├── router.cairo          # BTC Security Router
-│   │   ├── vault.cairo           # BTC Vault (main contract)
-│   │   ├── ybtc_token.cairo      # yBTC ERC20 share token
-│   │   ├── mock_strategy.cairo   # Mock yield strategy
+│   │   ├── router.cairo                # BTC Security Router
+│   │   ├── vault.cairo                 # BTC Vault (main contract)
+│   │   ├── ybtc_token.cairo            # yBTC ERC20 share token
+│   │   ├── mock_strategy.cairo         # Mock yield strategy
 │   │   ├── mock_pragma_oracle.cairo
-│   │   └── interfaces.cairo      # Shared interfaces
+│   │   └── interfaces.cairo            # Shared interfaces
 │   ├── tests/
 │   ├── Scarb.toml
-│   └── deployments.txt           # Live Sepolia contract addresses
+│   └── deployments.txt                 # Live Sepolia contract addresses
 │
-├── frontend/               # Next.js 16 web application
+├── frontend/                     # Next.js 16 web application
 │   ├── src/
-│   │   ├── app/                  # App router pages
-│   │   │   ├── page.tsx          # Dashboard
+│   │   ├── app/                        # App router pages
+│   │   │   ├── page.tsx                # Landing page (unauthenticated)
+│   │   │   ├── dashboard/              # Dashboard (wallet required)
 │   │   │   ├── vault/
 │   │   │   ├── leverage/
 │   │   │   ├── portfolio/
 │   │   │   ├── analytics/
 │   │   │   └── faucet/
-│   │   ├── components/           # UI components
+│   │   ├── components/
+│   │   │   ├── layout/                 # AppLayout, Header, Sidebar
+│   │   │   ├── system/                 # HealthBadge, MetricsRow, SafeModeBanner
+│   │   │   ├── vault/                  # Deposit/withdraw forms
+│   │   │   ├── leverage/               # Leverage controls
+│   │   │   ├── portfolio/              # Position cards
+│   │   │   ├── wallet/                 # Wallet connect UI
+│   │   │   └── ui/                     # Shared primitives
 │   │   ├── lib/
-│   │   │   ├── contracts/        # ABIs & contract addresses
-│   │   │   ├── hooks/            # React hooks (reads/writes)
-│   │   │   └── utils/            # Formatting utilities
-│   │   └── providers/            # Starknet wallet provider
+│   │   │   ├── contracts/              # ABIs & contract addresses
+│   │   │   ├── hooks/                  # useRouterData · useUserPosition · useAuthGuard
+│   │   │   └── utils/                  # cn · format helpers
+│   │   ├── contexts/                   # React context providers
+│   │   ├── types/                      # Shared TypeScript types
+│   │   └── providers/                  # Starknet wallet provider
 │   ├── vercel.json
 │   └── package.json
 │
-└── agents/                 # Python autonomous agents
+└── agents/                       # Python autonomous agents + faucet server
     ├── agents/
-    │   ├── risk_sentinel.py
-    │   ├── strategy_rebalancer.py
-    │   └── user_guardian.py
+    │   ├── risk_sentinel.py            # BTC price & volatility monitor
+    │   ├── strategy_rebalancer.py      # Yield optimizer
+    │   └── user_guardian.py            # Position health watcher
     ├── core/
-    │   ├── starknet_client.py
-    │   ├── price_feed.py
-    │   └── event_indexer.py
-    ├── Dockerfile
+    │   ├── starknet_client.py          # Starknet RPC wrapper
+    │   ├── price_feed.py               # Live BTC price feed
+    │   ├── event_indexer.py            # Onchain event indexer
+    │   └── logger.py                   # Structured JSON/console logger
+    ├── faucet_server.py                # FastAPI testnet wBTC faucet
+    ├── main.py                         # Agents orchestrator
+    ├── config.py                       # Centralised settings (pydantic)
+    ├── start.sh                        # Container entrypoint (agents + faucet)
+    ├── Dockerfile                      # Multi-process container image
+    ├── railway.toml                    # Railway deployment config
     └── requirements.txt
 ```
 
@@ -306,15 +359,40 @@ npm install
 npm run dev
 ```
 
-Opens at [http://localhost:3000](http://localhost:3000). Connects to Starknet Sepolia by default — no environment variables required.
+Opens at [http://localhost:3000](http://localhost:3000). Connects to Starknet Sepolia by default.
 
-### Agents
+To wire up the testnet faucet, add an `.env.local`:
+```
+NEXT_PUBLIC_FAUCET_API_URL=http://localhost:8400
+```
+
+### Agents + Faucet Server
 
 ```bash
+cp agents/.env.example agents/.env   # fill in private keys and addresses
 cd agents
 pip install -r requirements.txt
+
+# Option A — run everything together (same as production)
+./start.sh
+
+# Option B — run only the faucet server (no agents)
+uvicorn faucet_server:app --host 0.0.0.0 --port 8400 --reload
+
+# Option C — run only the agents orchestrator
 python main.py
 ```
+
+Key environment variables (see `agents/.env.example` for the full list):
+
+| Variable | Description |
+|---|---|
+| `STARKNET_RPC_URL` | Starknet RPC endpoint (BlastAPI recommended) |
+| `ROUTER_ADDRESS` / `VAULT_ADDRESS` | Deployed contract addresses |
+| `RISK_SENTINEL_PRIVATE_KEY` | Wallet with `ROLE_GUARDIAN` on the Router |
+| `REBALANCER_PRIVATE_KEY` | Wallet with `ROLE_KEEPER` on the Router & Vault |
+| `GUARDIAN_PRIVATE_KEY` | Wallet with `ROLE_LIQUIDATOR` on the Vault |
+| `FAUCET_PRIVATE_KEY` | Deployer wallet (owns Mock wBTC) |
 
 ### Smart Contracts
 
@@ -326,9 +404,11 @@ scarb test
 
 ---
 
-## Deploying the Frontend to Vercel
+## Deploying
 
-### Option 1 — Vercel CLI
+### Frontend → Vercel
+
+#### Option 1 — Vercel CLI
 
 ```bash
 npm i -g vercel
@@ -336,15 +416,26 @@ cd frontend
 vercel --prod
 ```
 
-### Option 2 — GitHub Integration
+#### Option 2 — GitHub Integration
 
 1. Push this repo to GitHub
 2. Go to [vercel.com/new](https://vercel.com/new) and import the repo
 3. Set **Root Directory** → `frontend`
 4. Framework auto-detected as **Next.js**
-5. Click **Deploy** — no environment variables needed
+5. Add environment variable: `NEXT_PUBLIC_FAUCET_API_URL` → your Railway faucet URL
+6. Click **Deploy**
 
-> All contract addresses and ABIs are bundled at build time from `src/lib/contracts/`. The app is fully static and requires no backend or secrets.
+> All contract addresses and ABIs are bundled at build time from `src/lib/contracts/`. No other secrets or environment variables are required.
+
+### Agents + Faucet → Railway
+
+The repo includes a `railway.toml` that points Railway at `agents/Dockerfile`. The Docker image runs **both** the agents orchestrator and the faucet HTTP server in a single container via `start.sh`.
+
+1. Create a new Railway project and connect this repo
+2. Railway auto-detects `railway.toml` — no extra config needed
+3. Set all required environment variables from `agents/.env.example` in the Railway dashboard
+4. Railway sets `$PORT` automatically and routes HTTP traffic to the faucet's `/health` endpoint
+5. Copy the generated Railway URL → paste as `NEXT_PUBLIC_FAUCET_API_URL` in your Vercel deployment
 
 ---
 

@@ -80,7 +80,7 @@ const STEPS = [
 
 export default function LandingPage() {
   const { isConnected } = useAccount();
-  const { connect, connectors } = useConnect();
+  const { connect, connectAsync, connectors } = useConnect();
   const router = useRouter();
 
   const [walletOpen, setWalletOpen] = useState(false);
@@ -145,7 +145,7 @@ export default function LandingPage() {
                     {connectors.map((c) => (
                       <button
                         key={c.id}
-                        onClick={() => { connect({ connector: c }); setWalletOpen(false); }}
+                        onClick={() => { connectAsync({ connector: c }).catch(() => {}); setWalletOpen(false); }}
                         className="w-full flex items-center gap-3 px-4 py-3 text-sm text-white hover:bg-white/5 transition-colors"
                       >
                         <Wallet className="w-4 h-4 text-orange-400" />
@@ -185,7 +185,7 @@ export default function LandingPage() {
             </nav>
             <div className="pt-4 border-t border-white/8 space-y-2">
               {connectors.map((c) => (
-                <button key={c.id} onClick={() => { connect({ connector: c }); setMobileOpen(false); }}
+                <button key={c.id} onClick={() => { connectAsync({ connector: c }).catch(() => {}); setMobileOpen(false); }}
                   className="w-full flex items-center justify-center gap-2 bg-orange-500 hover:bg-orange-400 text-white font-semibold rounded-xl px-5 py-3 transition-all">
                   <Wallet className="w-4 h-4" />
                   Connect with {c.name}
@@ -523,7 +523,7 @@ export default function LandingPage() {
               {connectors.map((c) => (
                 <motion.button
                   key={c.id}
-                  onClick={() => connect({ connector: c })}
+                  onClick={() => connectAsync({ connector: c }).catch(() => {})}
                   whileHover={{ scale: 1.03, transition: { duration: 0.2 } }}
                   whileTap={{ scale: 0.97 }}
                   className="flex items-center gap-2 bg-orange-500 hover:bg-orange-400 text-white font-semibold rounded-xl px-8 py-4 text-base transition-colors shadow-2xl shadow-orange-500/25"

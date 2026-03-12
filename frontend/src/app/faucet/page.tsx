@@ -12,11 +12,7 @@ import {
   XCircle,
   Copy,
   ExternalLink,
-  AlertTriangle,
   Info,
-  Zap,
-  ChevronDown,
-  ChevronUp,
   Bitcoin,
   Wallet,
   Rocket,
@@ -24,13 +20,9 @@ import {
   Wifi,
   WifiOff,
 } from "lucide-react";
-import { useAccount, useSendTransaction } from "@starknet-react/core";
+import { useAccount } from "@starknet-react/core";
 import { shortAddress, formatBTC } from "@/lib/utils/format";
 import { CONTRACTS } from "@/lib/contracts/addresses";
-import {
-  DEPLOYER_ADDRESS,
-} from "@/lib/contracts/mock-abi";
-import { uint256 } from "starknet";
 import { motion, AnimatePresence } from "framer-motion";
 
 // ─── Config ──────────────────────────────────────────────────────────────────
@@ -61,35 +53,6 @@ function CopyButton({ text }: { text: string }) {
   );
 }
 
-type TxStep = "idle" | "pending" | "success" | "error";
-type TxInfo = { step: TxStep; hash?: string; err?: string };
-
-function StatusRow({ info, label }: { info: TxInfo; label: string }) {
-  if (info.step === "idle") return null;
-  return (
-    <div className="mt-3 text-xs">
-      {info.step === "pending" && (
-        <span className="text-orange-400 flex items-center gap-1.5 animate-pulse">
-          <RefreshCw className="w-3 h-3 animate-spin" /> {label}…
-        </span>
-      )}
-      {info.step === "success" && (
-        <span className="text-emerald-400 flex items-center gap-1.5">
-          <CheckCircle2 className="w-3.5 h-3.5" /> Done!&nbsp;
-          <a href={`${STARKSCAN}/tx/${info.hash}`} target="_blank" rel="noreferrer" className="underline">
-            View tx
-          </a>
-        </span>
-      )}
-      {info.step === "error" && (
-        <span className="text-red-400 flex items-center gap-1.5">
-          <XCircle className="w-3.5 h-3.5" /> {info.err?.slice(0, 180)}
-        </span>
-      )}
-    </div>
-  );
-}
-
 // ─── Types ────────────────────────────────────────────────────────────────────
 
 type FaucetStatus = "checking" | "online" | "offline";
@@ -109,9 +72,6 @@ interface ApiError {
 export default function FaucetPage() {
   useAuthGuard();
   const { address, isConnected } = useAccount();
-  const { sendAsync } = useSendTransaction({});
-
-  const isDeployer = address?.toLowerCase() === DEPLOYER_ADDRESS.toLowerCase();
 
   // ── Amount selection
   const [selectedIdx,  setSelectedIdx]  = useState(2); // default 1 wBTC
@@ -124,13 +84,6 @@ export default function FaucetPage() {
   const [apiResult,    setApiResult]    = useState<ApiMintResult | null>(null);
   const [apiError,     setApiError]     = useState<string | null>(null);
   const [rateLimitMsg, setRateLimitMsg] = useState<string | null>(null);
-
-  // ── Advanced (deployer) state
-  const [showAdvanced, setShowAdvanced] = useState(false);
-  const [quickTx,      setQuickTx]      = useState<TxInfo>({ step: "idle" });
-  const [oracleTx,     setOracleTx]     = useState<TxInfo>({ step: "idle" });
-  const [refreshTx,    setRefreshTx]    = useState<TxInfo>({ step: "idle" });
-  const [mintTx,       setMintTx]       = useState<TxInfo>({ step: "idle" });
 
   // Auto-fill recipient when wallet connects
   useEffect(() => { if (address && !recipient) setRecipient(address); }, [address, recipient]);
@@ -181,37 +134,6 @@ export default function FaucetPage() {
     } finally {
       setApiPending(false);
     }
-  }
-
-  // ── Deployer direct-call helpers ──────────────────────────────────────────
-  async function run(
-    setter: React.Dispatch<React.SetStateAction<TxInfo>>,
-    calls: Parameters<typeof sendAsync>[0],
-  ) {
-    setter({ step: "pending" });
-    try {
-      const res = await sendAsync(calls);
-      setter({ step: "success", hash: res.transaction_hash });
-    } catch (e: unknown) {
-      setter({ step: "error", err: (e as Error)?.message ?? String(e) });
-    }
-  }
-
-  function handleQuickMint() {
-    const amountU256 = uint256.bnToUint256(BigInt(satoshiAmount));
-    // Router uses live Pragma oracle now — MockPragmaOracle is no longer active.
-    // Oracle refresh is not possible on Sepolia (Pragma feed is stale on testnet).
-    // Quick mint just mints test wBTC for the recipient.
-    run(setQuickTx, [
-      { contractAddress: CONTRACTS.MockWBTC, entrypoint: "mint", calldata: [recipientAddr, amountU256.low.toString(), amountU256.high.toString()] },
-    ]);
-  }
-
-  // Note: handleSetOraclePrice and handleRefreshRouterPrice removed.
-  // The router now uses live Pragma oracle — MockPragmaOracle is no longer active.
-  function handleMintOnly() {
-    const amountU256 = uint256.bnToUint256(BigInt(satoshiAmount));
-    run(setMintTx, [{ contractAddress: CONTRACTS.MockWBTC, entrypoint: "mint", calldata: [recipientAddr, amountU256.low.toString(), amountU256.high.toString()] }]);
   }
 
   return (
@@ -413,7 +335,7 @@ export default function FaucetPage() {
                   cd agents &amp;&amp; uvicorn faucet_server:app --port 8400
                 </div>
                 <p className="text-white/40 text-xs">
-                  Or use the deployer wallet directly via the manual method below.
+                  Ask the project admin to start the faucet server.
                 </p>
               </div>
             </div>
@@ -447,137 +369,6 @@ export default function FaucetPage() {
                 <p>Head to the Vault page and deposit your wBTC to start earning yield. Leverage is available too.</p>
               </div>
             </div>
-          </div>
-        </Card>
-
-        {/* ── Advanced: deployer direct-call ───────────────────────────────── */}
-        <button
-          onClick={() => setShowAdvanced(!showAdvanced)}
-          className="w-full flex items-center justify-between px-4 py-3 rounded-xl bg-white/[0.03] border border-white/8 text-sm text-white/40 hover:text-white/60 transition-colors"
-        >
-          <span className="flex items-center gap-2">
-            <Zap className="w-3.5 h-3.5 text-yellow-400" />
-            Manual / Deployer — Call contracts directly from your wallet
-          </span>
-          {showAdvanced ? <ChevronUp className="w-4 h-4" /> : <ChevronDown className="w-4 h-4" />}
-        </button>
-
-        <AnimatePresence>
-          {showAdvanced && (
-            <motion.div
-              initial={{ opacity: 0, height: 0 }}
-              animate={{ opacity: 1, height: "auto" }}
-              exit={{ opacity: 0, height: 0 }}
-              transition={{ duration: 0.2 }}
-              className="space-y-4 overflow-hidden"
-            >
-              {/* Deployer gate notice */}
-              {isConnected && !isDeployer && (
-                <Card className="border-orange-500/25 bg-orange-500/[0.04]">
-                  <div className="flex gap-3">
-                    <AlertTriangle className="w-4 h-4 text-orange-400 shrink-0 mt-0.5" />
-                    <div className="text-xs text-white/60 space-y-1.5">
-                      <p className="text-orange-300 font-medium">Deployer wallet required for direct calls</p>
-                      <p>Connect this account in Argent X / Braavos:</p>
-                      <div className="flex items-center gap-1 bg-black/20 rounded-lg px-3 py-1.5 font-mono text-white/50">
-                        {DEPLOYER_ADDRESS}
-                        <CopyButton text={DEPLOYER_ADDRESS} />
-                      </div>
-                    </div>
-                  </div>
-                </Card>
-              )}
-
-              {/* Amount + recipient (shared with advanced cards) */}
-              <Card>
-                <CardTitle className="mb-3 flex items-center gap-2">
-                  <Rocket className="w-3.5 h-3.5 text-orange-400" /> Quick Setup (one multicall)
-                </CardTitle>
-                <p className="text-white/40 text-xs mb-4">
-                  Oracle price + router refresh + wBTC mint — all in one browser transaction.
-                </p>
-                <Button
-                  onClick={handleQuickMint}
-                  disabled={!isConnected || !isDeployer || quickTx.step === "pending" || !recipientAddr}
-                  className="w-full"
-                >
-                  {quickTx.step === "pending" ? "Sending…" : `Mint ${btcDisplay} wBTC (deployer multicall)`}
-                </Button>
-                <StatusRow info={quickTx} label="Setting up & minting" />
-              </Card>
-
-              {/* Step 1 — Oracle is now live Pragma (no mock oracle) */}
-              <Card className="border-white/8 bg-white/[0.02]">
-                <CardTitle className="mb-1 flex items-center gap-2">
-                  <Zap className="w-3.5 h-3.5 text-yellow-400" /> Oracle — Live Pragma Feed
-                </CardTitle>
-                <p className="text-white/40 text-xs mt-1">
-                  The router now uses the live <strong className="text-white/60">Pragma</strong> BTC/USD oracle.
-                  The old MockPragmaOracle is no longer active. Oracle price refresh is not available
-                  on Sepolia testnet (Pragma&apos;s testnet feed is not regularly updated).
-                  The frontend displays an estimated price of ~$95,000 when the feed is stale.
-                </p>
-              </Card>
-
-              {/* Step 2 replaced — refresh_btc_price fails on Sepolia (Pragma data too stale) */}
-
-              {/* Step 1 (was Step 3) — Mint wBTC */}
-              <Card>
-                <CardTitle className="mb-1 flex items-center gap-2">
-                  <Droplets className="w-3.5 h-3.5 text-orange-400" /> Step 1 — Mint wBTC Only
-                </CardTitle>
-                <p className="text-white/40 text-xs mb-3">
-                  Calls <code className="bg-white/5 px-1 rounded">mint(recipient, amount)</code> on MockWBTC.
-                </p>
-                <Button onClick={handleMintOnly} disabled={!isConnected || !isDeployer || mintTx.step === "pending" || !recipientAddr} className="w-full" variant="ghost">
-                  {mintTx.step === "pending" ? "Minting…" : `mint(${btcDisplay} wBTC)`}
-                </Button>
-                <StatusRow info={mintTx} label="Minting wBTC" />
-              </Card>
-
-              {/* CLI */}
-              <Card>
-                <CardTitle className="mb-3 flex items-center gap-2">
-                  <Info className="w-3.5 h-3.5" /> CLI (starkli)
-                </CardTitle>
-                <div className="bg-black/40 rounded-lg p-3 text-xs font-mono text-white/50 space-y-1 overflow-x-auto">
-                  <p className="text-white/25"># Oracle refresh is not available on Sepolia (Pragma feed is stale)</p>
-                  <p className="text-white/25"># Mint test wBTC directly to your address</p>
-                  <p className="text-emerald-400">starkli invoke {shortAddress(CONTRACTS.MockWBTC)} mint &lt;YOUR_ADDRESS&gt; u256:100000000</p>
-                </div>
-              </Card>
-            </motion.div>
-          )}
-        </AnimatePresence>
-
-        {/* ── Old vault recovery notice */}
-        <Card className="border-yellow-500/20 bg-yellow-500/[0.03]">
-          <CardTitle className="mb-2 flex items-center gap-2 text-yellow-300">
-            <AlertTriangle className="w-3.5 h-3.5" /> Redeployed Contracts — Recover Old yBTC
-          </CardTitle>
-          <p className="text-xs text-white/50 mb-3">
-            If you deposited into the vault <strong className="text-white/70">before 24 Feb 2026</strong>, your yBTC is on the old
-            contract. Withdraw from the old vault to recover your wBTC, then re-deposit into the new vault.
-          </p>
-          <div className="space-y-1.5 text-xs font-mono text-white/40 bg-black/30 rounded-lg p-3 mb-3">
-            <p><span className="text-yellow-400/70">Old BTCVault:</span> 0x0047970cfbf8de94f268f2416c9e5cbaef520dae7b5eae0fd6476a41b7266f08</p>
-            <p><span className="text-yellow-400/70">Old YBTCToken:</span> 0x04ea131f51c071ce677482a4eeb1f9ac31e9188b2a92de13cb7043f9f21c8166</p>
-          </div>
-          <div className="flex gap-2">
-            <a
-              href="https://sepolia.voyager.online/contract/0x0047970cfbf8de94f268f2416c9e5cbaef520dae7b5eae0fd6476a41b7266f08#writeContract"
-              target="_blank" rel="noreferrer"
-              className="flex items-center gap-1.5 text-xs bg-yellow-500/10 hover:bg-yellow-500/15 border border-yellow-500/20 text-yellow-300 rounded-lg px-3 py-1.5 transition-colors"
-            >
-              <ExternalLink className="w-3 h-3" /> Call withdraw() on old vault
-            </a>
-            <a
-              href="https://sepolia.voyager.online/contract/0x04ea131f51c071ce677482a4eeb1f9ac31e9188b2a92de13cb7043f9f21c8166"
-              target="_blank" rel="noreferrer"
-              className="flex items-center gap-1.5 text-xs bg-white/5 hover:bg-white/8 border border-white/8 text-white/40 rounded-lg px-3 py-1.5 transition-colors"
-            >
-              <ExternalLink className="w-3 h-3" /> View old YBTCToken
-            </a>
           </div>
         </Card>
 

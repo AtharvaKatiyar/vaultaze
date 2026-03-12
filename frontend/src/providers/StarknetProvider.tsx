@@ -22,7 +22,6 @@ export default function StarknetProvider({ children }: { children: React.ReactNo
       chains={[sepolia]}
       provider={provider}
       connectors={connectors}
-      autoConnect
     >
       {children}
     </StarknetConfig>

@@ -2,9 +2,10 @@
 
 import { useAccount, useConnect, useDisconnect } from "@starknet-react/core";
 import { Button } from "@/components/ui/Button";
-import { shortAddress, formatBTC } from "@/lib/utils/format";
-import { toBalance, useWBTCBalance, useYBTCBalance } from "@/lib/hooks/useUserPosition";
-import { Wallet, LogOut, ChevronDown, Bitcoin, Coins, Droplets, ExternalLink } from "lucide-react";
+import { shortAddress, formatBTC, formatUSD, pragmaToUSD, formatLeverage, formatSharePrice } from "@/lib/utils/format";
+import { toBalance, useWBTCBalance, useYBTCBalance, useUserDashboard } from "@/lib/hooks/useUserPosition";
+import { useSystemMetrics } from "@/lib/hooks/useRouterData";
+import { Wallet, LogOut, ChevronDown, Bitcoin, Coins, Droplets, ExternalLink, TrendingUp, Zap } from "lucide-react";
 import { useState, useRef, useEffect } from "react";
 import { motion, AnimatePresence } from "framer-motion";
 import Link from "next/link";
@@ -13,13 +14,15 @@ const STARKSCAN = "https://sepolia.voyager.online";
 
 export function ConnectButton() {
   const { address, isConnected } = useAccount();
-  const { connect, connectors }  = useConnect();
+  const { connect, connectAsync, connectors }  = useConnect();
   const { disconnect }           = useDisconnect();
   const [open, setOpen]          = useState(false);
   const ref                      = useRef<HTMLDivElement>(null);
 
   const { data: rawWbtc } = useWBTCBalance();
   const { data: rawYbtc } = useYBTCBalance();
+  const { data: dash }    = useUserDashboard();
+  const { data: metrics } = useSystemMetrics();
 
   const wbtcBal     = toBalance(rawWbtc);
   const ybtcBal     = toBalance(rawYbtc);
@@ -27,6 +30,17 @@ export function ConnectButton() {
   const hasYbtc     = ybtcBal > 0n;
   const wbtcDisplay = formatBTC(wbtcBal, 6);
   const ybtcDisplay = formatBTC(ybtcBal, 6);
+
+  // Derived position data for the dropdown
+  const btcPrice       = metrics ? pragmaToUSD(BigInt(metrics.btcUsdPrice)) : 95_000;
+  const sharePriceRaw  = Number(dash?.sharePrice ?? metrics?.sharePrice ?? 1_000_000n);
+  const sharePriceRatio = sharePriceRaw > 0 ? sharePriceRaw / 1_000_000 : 1;
+  const yieldGainBTC   = ybtcBal > 0n ? (Number(ybtcBal) / 1e8) * (sharePriceRatio - 1) : 0;
+  const claimableYield = dash?.claimableYieldSat ?? 0n;
+  const leverage_      = dash?.currentLeverage ?? 100;
+  const isLeveraged    = leverage_ > 100;
+  const vaultValueBTC  = (Number(ybtcBal) / 1e8) * sharePriceRatio;
+  const vaultValueUSD  = vaultValueBTC * btcPrice;
 
   // Close dropdown on outside click
   useEffect(() => {
@@ -123,8 +137,10 @@ export function ConnectButton() {
                       <Coins className="w-4 h-4 text-emerald-400" />
                     </div>
                     <div>
-                      <p className="text-xs font-semibold text-white">yBTC</p>
-                      <p className="text-[10px] text-white/30">Vault yield shares</p>
+                      <p className="text-xs font-semibold text-white">yBTC Vault Shares</p>
+                      <p className="text-[10px] text-white/30">
+                        {hasYbtc ? `≈ ${vaultValueBTC.toFixed(6)} wBTC (${formatUSD(vaultValueUSD)})` : "Vault yield shares"}
+                      </p>
                     </div>
                   </div>
                   <div className="text-right">
@@ -135,6 +151,56 @@ export function ConnectButton() {
                   </div>
                 </div>
               </div>
+
+              {/* Position stats — only when user has a vault position */}
+              {hasYbtc && (
+                <div className="px-4 py-3 border-b border-white/8 space-y-2">
+                  <p className="text-[10px] text-white/30 uppercase tracking-wider mb-2">Vault Position</p>
+
+                  {/* Share price / yield */}
+                  <div className="flex items-center justify-between">
+                    <div className="flex items-center gap-1.5">
+                      <TrendingUp className="w-3 h-3 text-emerald-400/70" />
+                      <span className="text-[11px] text-white/50">Share price</span>
+                    </div>
+                    <div className="text-right">
+                      <span className="text-[11px] font-mono text-white/80">{formatSharePrice(dash?.sharePrice ?? metrics?.sharePrice)}</span>
+                      {sharePriceRatio > 1 && (
+                        <span className="ml-1.5 text-[10px] text-emerald-400">
+                          +{((sharePriceRatio - 1) * 100).toFixed(4)}%
+                        </span>
+                      )}
+                    </div>
+                  </div>
+
+                  {/* Yield earned via share price */}
+                  {yieldGainBTC > 0 && (
+                    <div className="flex items-center justify-between">
+                      <span className="text-[11px] text-white/50">Yield earned</span>
+                      <span className="text-[11px] font-mono text-emerald-400">+{yieldGainBTC.toFixed(8)} wBTC</span>
+                    </div>
+                  )}
+
+                  {/* Claimable yield */}
+                  {claimableYield > 0n && (
+                    <div className="flex items-center justify-between bg-emerald-500/8 rounded-lg px-2 py-1">
+                      <span className="text-[11px] text-emerald-300 font-medium">Claimable yield</span>
+                      <span className="text-[11px] font-mono text-emerald-400 font-semibold">+{formatBTC(claimableYield)} wBTC</span>
+                    </div>
+                  )}
+
+                  {/* Leverage */}
+                  <div className="flex items-center justify-between">
+                    <div className="flex items-center gap-1.5">
+                      <Zap className="w-3 h-3 text-yellow-400/70" />
+                      <span className="text-[11px] text-white/50">Leverage</span>
+                    </div>
+                    <span className={`text-[11px] font-semibold ${isLeveraged ? "text-yellow-400" : "text-white/30"}`}>
+                      {isLeveraged ? formatLeverage(leverage_) : "None"}
+                    </span>
+                  </div>
+                </div>
+              )}
 
               {/* Faucet CTA – only when no wBTC */}
               {!hasWbtc && (
@@ -207,7 +273,7 @@ export function ConnectButton() {
             {connectors.map((c) => (
               <button
                 key={c.id}
-                onClick={() => { connect({ connector: c }); setOpen(false); }}
+                onClick={() => { connectAsync({ connector: c }).catch(() => {}); setOpen(false); }}
                 className="w-full flex items-center gap-3 px-4 py-3 text-sm text-white hover:bg-white/5 transition-colors"
               >
                 <Wallet className="w-4 h-4 text-orange-400" />

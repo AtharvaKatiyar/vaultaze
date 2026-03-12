@@ -5,6 +5,7 @@ import { useRef } from "react";
 import { CONTRACTS } from "@/lib/contracts/addresses";
 import { ROUTER_ABI } from "@/lib/contracts/router-abi";
 import { VAULT_ABI } from "@/lib/contracts/vault-abi";
+import { ERC20_ABI } from "@/lib/contracts/erc20-abi";
 import { healthToStatus } from "@/lib/utils/format";
 import { SystemMetrics, type HealthStatus } from "@/types";
 import { useMemo } from "react";
@@ -97,6 +98,15 @@ export function useVaultAPY() {
     abi: VAULT_ABI,
     address: CONTRACTS.BTCVault,
     functionName: "get_apy",
+    watch: true,
+  });
+}
+
+export function useYBTCTotalSupply() {
+  return useReadContract({
+    abi: ERC20_ABI,
+    address: CONTRACTS.YBTCToken,
+    functionName: "total_supply",
     watch: true,
   });
 }

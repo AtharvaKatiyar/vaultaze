@@ -128,27 +128,6 @@ export default function LeveragePage() {
           </Card>
         </div>
 
-        {/* Ghost leverage banner — leverage recorded but oracle was 0 at apply time */}
-        {ghostLeverage && (
-          <motion.div initial={{ opacity: 0, y: 8 }} animate={{ opacity: 1, y: 0 }}>
-            <Card className="border-yellow-500/20 bg-yellow-500/5">
-              <div className="flex items-start gap-3">
-                <AlertTriangle className="w-4 h-4 text-yellow-400 mt-0.5 shrink-0" />
-                <div>
-                  <p className="text-sm font-semibold text-yellow-300">
-                    Leverage not funded — re-apply required
-                  </p>
-                  <p className="text-xs text-white/50 mt-1">
-                    Your leverage was recorded as {formatLeverage(currentLeverage)} but the BTC oracle
-                    was unavailable at that moment, so no stablecoins were borrowed. Re-apply your
-                    target leverage below to activate the full position.
-                  </p>
-                </div>
-              </div>
-            </Card>
-          </motion.div>
-        )}
-
         {/* Recommended */}
         {recLev_ > 0 && recLev_ !== currentLeverage && (
           <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }}>

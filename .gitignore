@@ -26,3 +26,4 @@ vault/target/CACHEDIR.TAG
 # Editor
 .DS_Store
 *.swp
+chatSessions/
