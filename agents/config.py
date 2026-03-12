@@ -98,6 +98,20 @@ class AgentSettings(BaseSettings):
 
     # ── Derived helpers ───────────────────────────────────────────────────────
 
+    @field_validator("*", mode="before")
+    @classmethod
+    def strip_quotes(cls, v: object) -> object:
+        """
+        Railway (and some other platforms) automatically wraps env var values
+        in double quotes when they are stored via their UI, so the Python
+        process receives  '"0x06e077f2…"'  instead of  '0x06e077f2…'.
+        Strip any leading/trailing single or double quotes from every string
+        field before Pydantic validates it further.
+        """
+        if isinstance(v, str):
+            return v.strip('"').strip("'")
+        return v
+
     @field_validator("starknet_network")
     @classmethod
     def validate_network(cls, v: str) -> str:
